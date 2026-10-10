@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { RiCalendarTodoLine } from "react-icons/ri";
 import axios from "axios";
 import toast from "react-hot-toast";
 import ListItem from "./ListItem";
+import { addTodo, editTodo, setTodos } from "./store/todoSlice";
 
 const ToDoList = () => {
   // Initial state object for a task
@@ -11,9 +13,9 @@ const ToDoList = () => {
   };
 
   const [addTask, setAddTask] = useState(initialValue);
-  const [todoList, setTodoList] = useState([]);
   const [isListLoading, setIsListLoading] = useState(true);
   const [isButtonLoading, setButtonLoading] = useState(false);
+  const dispatch = useDispatch();
 
   const API_BACKEND = import.meta.env.VITE_API_BASE_URL;
 
@@ -22,7 +24,7 @@ const ToDoList = () => {
     try {
       const response = await axios.get(`${API_BACKEND}/get`);
 
-      setTodoList(response.data);
+      dispatch(setTodos(response.data));
     } catch (err) {
       const message =
         err.response?.data?.errorMessage || "Something went wrong!";
@@ -67,7 +69,7 @@ const ToDoList = () => {
           );
           toast.success(res?.data?.message);
 
-          await fetchTodoList();
+          dispatch(editTodo(res.data.updated));
           setAddTask(initialValue);
         } catch (err) {
           const message =
@@ -96,7 +98,7 @@ const ToDoList = () => {
         try {
           const res = await axios.post(`${API_BACKEND}/new`, newTask, headers);
 
-          await fetchTodoList();
+          dispatch(addTodo(res.data.newList));
           toast.success(res?.data?.message);
 
           setAddTask(initialValue);
@@ -165,11 +167,8 @@ const ToDoList = () => {
 
         {/* Render tasks using ListItem component */}
         <ListItem
-          todoList={todoList}
-          setTodoList={setTodoList}
           setAddTask={setAddTask}
           isListLoading={isListLoading}
-          fetchTodoList={fetchTodoList}
         />
       </div>
     </div>

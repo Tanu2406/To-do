@@ -13,6 +13,7 @@ This is a full-stack Todo application that allows users to create, read, update,
 **Client (Frontend):**
 
 - **React.js**: A JavaScript library for building the user interface.
+- **Redux Toolkit** and **React Redux**: Centralized client-side state management for todos.
 - **HTML, CSS**: For structuring and styling the application.
 - **TailwindCSS**: A utility-first CSS framework for rapid UI development.
 
@@ -36,7 +37,8 @@ The repository is organized into two main folders to separate the frontend and b
 ├── client/                      # Frontend React application
 │   ├── public/
 │   ├── src/                     # Source code
-│   │   └── App.jsx
+│   │   ├── App.jsx
+│   │   └── store/               # Redux store and todo slice
 │   ├── .env                     # Environment variables
 │   ├── index.css                # Global styles
 │   ├── index.html               # HTML entry point

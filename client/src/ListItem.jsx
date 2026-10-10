@@ -6,10 +6,14 @@ import axios from "axios";
 import Tooltip from "./Tooltip";
 import ListItemSkeleton from "./ListItemSkeleton";
 import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { deleteTodo, toggleTodo } from "./store/todoSlice";
 
-const ListItem = ({ todoList, setAddTask, isListLoading, fetchTodoList }) => {
+const ListItem = ({ setAddTask, isListLoading }) => {
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
   const [isCompleteLoading, setIsCompleteLoading] = useState(false);
+  const dispatch = useDispatch();
+  const todoList = useSelector((state) => state.todos);
 
   const API_BACKEND = import.meta.env.VITE_API_BASE_URL;
 
@@ -32,7 +36,7 @@ const ListItem = ({ todoList, setAddTask, isListLoading, fetchTodoList }) => {
         const res = await axios.delete(`${API_BACKEND}/delete/${_id}`, headers);
 
         toast.success(res?.data?.message);
-        await fetchTodoList();
+        dispatch(deleteTodo(_id));
       } catch (err) {
         const message =
           err.response?.data?.errorMessage || "Something went wrong!";
@@ -72,7 +76,7 @@ const ListItem = ({ todoList, setAddTask, isListLoading, fetchTodoList }) => {
             ? `${currentTask.task} - Task not completed`
             : `${currentTask.task} - Task completed`
         );
-        await fetchTodoList();
+        dispatch(toggleTodo(currentTask._id));
       } catch (err) {
         const message =
           err.response?.data?.errorMessage || "Something went wrong!";
