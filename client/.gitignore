@@ -58,6 +58,7 @@ coverage/
 .vscode/
 
 # env development/production local
+.env
 .env.development.local
 .env.local
 .env.development

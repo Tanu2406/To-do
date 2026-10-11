@@ -1,119 +1,87 @@
-# ❤️ MERN Stack Todo App 📋
+# Todo App
 
-A simple yet powerful full-stack todo application built with the MERN stack. Organize your tasks efficiently with a clean and responsive user interface.
+A full-stack todo app with a React, Redux Toolkit, and Tailwind CSS client, plus a Node.js and Express API backed by MySQL.
 
-- [🚀 _Live Project Demo_ 😍](https://mern-todofy.netlify.app/)
+## Prerequisites
 
-## 🚀 About the Project
+- Node.js 18 or newer
+- MySQL 8 or compatible
 
-This is a full-stack Todo application that allows users to create, read, update, and delete (CRUD) tasks. It's built with the MERN stack (MongoDB, Express.js, React.js, Node.js) to provide a seamless and fast user experience.
+## Setup
 
-## 🛠️ Tech Stack
+1. Create the MySQL database and `todos` table using the supplied schema:
 
-**Client (Frontend):**
+   ```bash
+   mysql -u YOUR_MYSQL_USER -p < server/schema.sql
+   ```
 
-- **React.js**: A JavaScript library for building the user interface.
-- **Redux Toolkit** and **React Redux**: Centralized client-side state management for todos.
-- **HTML, CSS**: For structuring and styling the application.
-- **TailwindCSS**: A utility-first CSS framework for rapid UI development.
+2. Configure the server:
 
-**Server (Backend):**
+   ```bash
+   cd server
+   npm install
+   ```
 
-- **Node.js**: A JavaScript runtime environment.
-- **Express.js**: A web application framework for building the RESTful API.
-- **Mongoose**: An object data modeling (ODM) library for MongoDB.
+   Add the MySQL values from `server/.env.example` to `server/.env`:
+   `DB_HOST`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`. `DB_PORT` defaults to
+   `3306`, and the API `PORT` defaults to `5000`.
 
-**Database:**
+3. Configure the client:
 
-- **MongoDB**: A NoSQL database for storing todos.
+   ```bash
+   cd ../client
+   npm install
+   ```
 
-## 🌱 Project Structure
+   Copy `client/.env.example` to `client/.env`. The default API URL is
+   `http://localhost:5000/api`.
 
-The repository is organized into two main folders to separate the frontend and backend concerns.
+4. Start the API and client in separate terminals:
+
+   ```bash
+   cd server
+   npm run dev
+   ```
+
+   ```bash
+   cd client
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000). The API connects to
+   MySQL before it starts accepting requests.
+
+## API
+
+All routes are prefixed with `/api`:
+
+| Method | Route | Description |
+| --- | --- | --- |
+| `GET` | `/get` | List todos |
+| `POST` | `/new` | Create a todo with `{ "task": "..." }` |
+| `PUT` | `/update/:id` | Update `task` and/or `isCompleted` |
+| `DELETE` | `/delete/:id` | Delete a todo |
+
+Todo tasks must be non-empty strings up to 255 characters. `isCompleted`, when
+provided, must be a boolean. Successful create and update responses retain the
+existing `newList` and `updated` response properties used by the client.
+
+## Tests and build
+
+With the server environment configured and the schema created in that database,
+run the API integration tests:
 
 ```bash
-/MERN-Todo
-
-├── client/                      # Frontend React application
-│   ├── public/
-│   ├── src/                     # Source code
-│   │   ├── App.jsx
-│   │   └── store/               # Redux store and todo slice
-│   ├── .env                     # Environment variables
-│   ├── index.css                # Global styles
-│   ├── index.html               # HTML entry point
-│   └── index.jsx                # React entry point
-│
-└── server/                      # Backend Node.js and Express.js application
-│   ├── controllers/             # Request handling logic
-│   ├── models/                  # Mongoose schemas
-│   ├── node_modules/
-│   ├── routes/                  # API route definitions
-│   ├── .env                     # Environment variables
-│   └── index.js                 # Server entry point
-│
-└── README.md                    # Project documentation
+cd server
+npm test
 ```
 
-## 🎻 Prerequisites
-
-Before getting started with the Practicing Projects, you should have a basic understanding of `MongoDB, Express.js, React.js, Node.js, HTML, CSS, TailwindCSS and JavaScript.`
-
-## 🔥 Clone this Repository
-
-You need to write the following commands on the terminal screen (in vscode) so that you can run this project locally.
+The CRUD integration test creates a uniquely named row, verifies its persisted
+state through the API, and removes it when finished. Build and lint the client
+with:
 
 ```bash
-git clone https://github.com/chetannada/MERN-Todo.git
-```
-
-Go to the project directory
-
-```bash
-cd MERN-Todo
-```
-
-Install dependencies for both client and server:
-
-```bash
-Install client dependencies
-
 cd client
-npm install
-
-Install server dependencies
-
-cd ../server
-npm install
+npm run build
+npm run lint
 ```
-
-Set up environment variables:
-
-    * .env - environment variables for this project to run in development environment (fill with actual values for environment variables)
-
-Run the application:
-
-- In the **server** directory, start the backend server:
-
-  ```bash
-  npm run start
-  ```
-
-- In the **client** directory, start the frontend app:
-  ```bash
-  npm run dev
-  ```
-
-The client application will now be running on `http://localhost:3000` and the server will be listening on `http://localhost:5000`.
-
-If you want to Fork repository and want to run locally, follow this guidelines [Fork and Clone Github Repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo)
-
-## ✏️ Contributing
-
-This is an Open-Source repository, and contributions are always welcome! If you find an issue, please create a new issue under the "Issues" section. To contribute code, fork the repository and submit a pull request. Your contributions will help make this a valuable resource for the community!
-
-## 🤝 Let's Connect
-
-[![linkedin](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/chetannada/)
-[![twitter](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://twitter.com/chetannada)
-[![discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discordapp.com/users/916005177838956555)
