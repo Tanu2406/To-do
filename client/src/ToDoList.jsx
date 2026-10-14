@@ -5,6 +5,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import ListItem from "./ListItem";
 import { addTodo, editTodo, setTodos } from "./store/todoSlice";
+import styles from "./ToDoList.module.scss";
 
 const ToDoList = () => {
   // Initial state object for a task
@@ -126,21 +127,21 @@ const ToDoList = () => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
-      <div className="w-[32rem] m-4 min-h-[24rem] flex flex-col justify-start items-start px-8 py-6 space-y-6 rounded-xl overflow-hidden border border-gray-300 shadow-lg bg-white">
-        <div className="flex gap-3 justify-center items-center text-3xl font-semibold text-gray-800">
+    <div className={styles.page}>
+      <div className={styles.card}>
+        <div className={styles.heading}>
           <RiCalendarTodoLine />
           <h1>To-Do List</h1>
         </div>
 
         {/* Form submission handles both button click and Enter key */}
-        <form onSubmit={handleAddTask} className="w-full relative">
+        <form onSubmit={handleAddTask} className={styles.form}>
           <input
             id="task"
             name="task"
             type="text"
             required
-            className="block w-full p-3 ps-4 pe-24 text-sm text-gray-900 border border-gray-300 rounded-md bg-gray-100 focus:ring-purple-500 focus:border-purple-500"
+            className={styles.input}
             value={addTask.task}
             onChange={(e) => {
               if (!isButtonLoading) {
@@ -154,12 +155,7 @@ const ToDoList = () => {
           <button
             type="submit"
             disabled={isButtonLoading}
-            className={`absolute right-2.5 bottom-[0.30rem] text-white font-semibold rounded-md text-sm px-4 py-2 
-      ${
-        isButtonLoading
-          ? "bg-gray-400 cursor-not-allowed"
-          : "bg-purple-600 hover:bg-purple-700 transition duration-200"
-      }`}
+            className={styles.submitButton}
           >
             {buttonText()}
           </button>

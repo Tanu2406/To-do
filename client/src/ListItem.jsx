@@ -8,6 +8,7 @@ import ListItemSkeleton from "./ListItemSkeleton";
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { deleteTodo, toggleTodo } from "./store/todoSlice";
+import styles from "./ListItem.module.scss";
 
 const ListItem = ({ setAddTask, isListLoading }) => {
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
@@ -90,42 +91,42 @@ const ListItem = ({ setAddTask, isListLoading }) => {
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className={styles.list}>
       {isListLoading ? (
         <ListItemSkeleton />
       ) : (
         todoList.map((list) => (
-          <div
-            key={list._id}
-            className="flex flex-row justify-between items-start gap-x-3"
-          >
+          <div key={list._id} className={styles.item}>
             <div
-              className={`flex flex-row justify-start items-start gap-x-4 ${
-                isCompleteLoading ? "cursor-not-allowed" : "cursor-pointer"
+              className={`${styles.task} ${
+                isCompleteLoading ? styles.busy : ""
               }`}
               onClick={() => !isCompleteLoading && handleComplete(list)}
             >
-              <span className="h-5 w-5">
+              <span className={styles.completionIcon}>
                 {list.isCompleted ? (
-                  <FaCheckCircle color="#16a34a" size={22} />
+                  <FaCheckCircle
+                    className={styles.completedIcon}
+                    size={22}
+                  />
                 ) : (
-                  <FaRegCircle color="#484d5c" size={22} />
+                  <FaRegCircle className={styles.pendingIcon} size={22} />
                 )}
               </span>
 
               <span
-                className={`break-all ${
-                  list.isCompleted ? "line-through" : "no-underline"
+                className={`${styles.taskText} ${
+                  list.isCompleted ? styles.completed : ""
                 }`}
               >
                 {list.task}
               </span>
             </div>
 
-            <div className="flex flex-row gap-3">
+            <div className={styles.actions}>
               <Tooltip text="Edit">
                 <div
-                  className="h-5 w-5 cursor-pointer text-green-700 hover:text-green-900"
+                  className={styles.editAction}
                   onClick={() => handleEdit(list)}
                 >
                   <TbEdit size={20} />
@@ -133,10 +134,8 @@ const ListItem = ({ setAddTask, isListLoading }) => {
               </Tooltip>
               <Tooltip text="Delete">
                 <div
-                  className={`h-5 w-5  ${
-                    isDeleteLoading
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "text-gray-700 cursor-pointer hover:text-rose-800"
+                  className={`${styles.deleteAction} ${
+                    isDeleteLoading ? styles.disabled : ""
                   }`}
                   onClick={() => {
                     if (!isDeleteLoading) handleDelete(list._id);

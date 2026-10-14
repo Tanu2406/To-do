@@ -1,0 +1,46 @@
+@use "./styles/variables" as *;
+
+.tooltip {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  &:hover .content {
+    display: block;
+  }
+}
+
+.position {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  z-index: 10;
+  display: none;
+  margin-bottom: $space-3;
+  transform: translateX(-50%);
+}
+
+.content {
+  position: relative;
+  max-width: 24rem;
+  padding: $space-2 $space-3;
+  border-radius: $radius-sm;
+  background-color: $color-gray-800;
+  color: $color-white;
+  font-size: $font-size-xs;
+  line-height: $line-height-xs;
+  overflow-wrap: break-word;
+}
+
+.arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-right: 4px solid transparent;
+  border-bottom: 0;
+  border-left: 4px solid transparent;
+  border-top: 4px solid $color-gray-800;
+}

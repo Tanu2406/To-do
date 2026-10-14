@@ -1,0 +1,77 @@
+@use "./styles/variables" as *;
+
+.list {
+  width: 100%;
+
+  > * + * {
+    margin-top: $space-4;
+  }
+}
+
+.item {
+  @include flex-row($space-3, space-between, flex-start);
+}
+
+.task {
+  @include flex-row($space-4, flex-start, flex-start);
+
+  cursor: pointer;
+
+  &.busy {
+    cursor: not-allowed;
+  }
+}
+
+.completionIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.completedIcon {
+  color: $color-green-600;
+}
+
+.pendingIcon {
+  color: $color-icon-muted;
+}
+
+.taskText {
+  word-break: break-all;
+
+  &.completed {
+    text-decoration: line-through;
+  }
+}
+
+.actions {
+  @include flex-row($space-3);
+}
+
+.editAction,
+.deleteAction {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.editAction {
+  cursor: pointer;
+  color: $color-green-700;
+
+  &:hover {
+    color: $color-green-900;
+  }
+}
+
+.deleteAction {
+  cursor: pointer;
+  color: $color-gray-700;
+
+  &:hover {
+    color: $color-rose-800;
+  }
+
+  &.disabled {
+    cursor: not-allowed;
+    color: $color-gray-400;
+  }
+}

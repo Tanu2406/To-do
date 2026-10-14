@@ -1,0 +1,54 @@
+@use "./styles/variables" as *;
+
+.skeletonList {
+  width: 100%;
+}
+
+.item {
+  @include flex-row($space-3, space-between, flex-start);
+
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  & + & {
+    margin-top: $space-4;
+  }
+}
+
+.taskPlaceholder {
+  @include flex-row($space-4, flex-start, flex-start);
+}
+
+.circle,
+.text,
+.button {
+  background-color: $color-placeholder;
+}
+
+.circle {
+  width: 1.5rem;
+  height: 1.25rem;
+  border: 1px solid $color-placeholder-border;
+  border-radius: 100%;
+}
+
+.text {
+  width: 3.5rem;
+  height: 1.25rem;
+  border-radius: $radius-sm;
+}
+
+.actions {
+  @include flex-row($space-3);
+}
+
+.button {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: $radius-sm;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}

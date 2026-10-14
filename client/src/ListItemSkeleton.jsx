@@ -1,29 +1,28 @@
+import styles from "./ListItemSkeleton.module.scss";
+
 const ListItemSkeleton = () => {
   return (
-    <>
+    <div className={styles.skeletonList}>
       {Array(5)
         .fill(0)
         .map((_, index) => (
-          <div
-            key={index}
-            className="flex flex-row justify-between items-start gap-x-3 animate-pulse"
-          >
-            <div className="flex flex-row justify-start items-start gap-x-4">
+          <div key={index} className={styles.item}>
+            <div className={styles.taskPlaceholder}>
               {/* Circle Placeholder */}
-              <div className="h-5 w-6 bg-gray-300 rounded-[100%] border border-gray-400"></div>
+              <div className={styles.circle}></div>
 
               {/* Text Placeholder */}
-              <div className="h-5 w-14 bg-gray-300 rounded"></div>
+              <div className={styles.text}></div>
             </div>
 
             {/* Button Placeholders */}
-            <div className="flex flex-row gap-3">
-              <div className="h-5 w-5 bg-gray-300 rounded"></div>
-              <div className="h-5 w-5 bg-gray-300 rounded"></div>
+            <div className={styles.actions}>
+              <div className={styles.button}></div>
+              <div className={styles.button}></div>
             </div>
           </div>
         ))}
-    </>
+    </div>
   );
 };
 

@@ -1,6 +1,6 @@
 # Todo App
 
-A full-stack todo app with a React, Redux Toolkit, and Tailwind CSS client, plus a Node.js and Express API backed by MySQL.
+A full-stack todo app with a React, Redux Toolkit, and Sass modules client, plus a Node.js and Express API backed by MySQL.
 
 ## Prerequisites
 

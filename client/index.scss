@@ -1,0 +1,39 @@
+@use "./src/styles/variables" as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  border-style: solid;
+  border-color: $color-gray-200;
+  font-family: "Poppins", sans-serif;
+}
+
+html {
+  line-height: 1.5;
+}
+
+body {
+  min-height: 100vh;
+  line-height: inherit;
+}
+
+button,
+input {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
+h1 {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+input::placeholder {
+  color: $color-gray-400;
+  opacity: 1;
+}
