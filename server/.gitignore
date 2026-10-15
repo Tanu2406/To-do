@@ -2,6 +2,7 @@
 # Node artifact files
 node_modules/
 dist/
+coverage/
 .env
 
 # env development/production local
