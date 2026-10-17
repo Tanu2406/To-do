@@ -1,4 +1,5 @@
 const Todo = require("../models/todoModel");
+const mongoose = require("mongoose");
 
 function isRequestObject(body) {
   return body !== null && typeof body === "object" && !Array.isArray(body);
@@ -48,11 +49,7 @@ function validateTodoFields(body, { requireTask = false } = {}) {
 }
 
 function parseId(id) {
-  if (!/^[1-9]\d*$/.test(id)) {
-    return null;
-  }
-  const numericId = Number(id);
-  return Number.isSafeInteger(numericId) ? numericId : null;
+  return /^[a-f\d]{24}$/i.test(id) && mongoose.isValidObjectId(id) ? id : null;
 }
 
 function sendDatabaseError(res, action, error) {
@@ -61,7 +58,7 @@ function sendDatabaseError(res, action, error) {
 }
 
 exports.baseRoot = (req, res) => {
-  res.status(200).send("<h1>Todo API</h1><p>Powered by Node.js, Express, and MySQL.</p>");
+  res.status(200).send("<h1>Todo API</h1><p>Powered by Node.js, Express, and MongoDB.</p>");
 };
 
 exports.getTask = async (req, res) => {

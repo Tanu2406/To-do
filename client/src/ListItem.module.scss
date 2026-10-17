@@ -40,6 +40,7 @@
 
   &.completed {
     text-decoration: line-through;
+    color: $color-gray-700;
   }
 }
 

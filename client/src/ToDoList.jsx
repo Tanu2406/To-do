@@ -4,6 +4,7 @@ import { RiCalendarTodoLine } from "react-icons/ri";
 import axios from "axios";
 import toast from "react-hot-toast";
 import ListItem from "./ListItem";
+import { API_BASE_URL } from "./api";
 import { addTodo, editTodo, setTodos } from "./store/todoSlice";
 import styles from "./ToDoList.module.scss";
 
@@ -18,12 +19,10 @@ const ToDoList = () => {
   const [isButtonLoading, setButtonLoading] = useState(false);
   const dispatch = useDispatch();
 
-  const API_BACKEND = import.meta.env.VITE_API_BASE_URL;
-
   // fetch todo using axios with async/await try/catch block
   const fetchTodoList = async () => {
     try {
-      const response = await axios.get(`${API_BACKEND}/get`);
+      const response = await axios.get(`${API_BASE_URL}/get`);
 
       dispatch(setTodos(response.data));
     } catch (err) {
@@ -52,7 +51,8 @@ const ToDoList = () => {
     if (!addTask.task.trim()) return;
 
     if (addTask._id) {
-      const updatedTask = { ...addTask, task: addTask.task.trim() };
+      const todoId = addTask._id;
+      const updatedTask = { task: addTask.task.trim() };
 
       const headers = {
         headers: {
@@ -64,7 +64,7 @@ const ToDoList = () => {
       async function updateTodoList() {
         try {
           const res = await axios.put(
-            `${API_BACKEND}/update/${addTask._id}`,
+            `${API_BASE_URL}/update/${todoId}`,
             updatedTask,
             headers
           );
@@ -97,7 +97,7 @@ const ToDoList = () => {
       setButtonLoading(true);
       async function createTodoList() {
         try {
-          const res = await axios.post(`${API_BACKEND}/new`, newTask, headers);
+          const res = await axios.post(`${API_BASE_URL}/new`, newTask, headers);
 
           dispatch(addTodo(res.data.newList));
           toast.success(res?.data?.message);

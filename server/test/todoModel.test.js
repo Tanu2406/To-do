@@ -1,135 +1,112 @@
-jest.mock("../config/db", () => ({
-  execute: jest.fn(),
-}));
-
-const pool = require("../config/db");
-const Todo = require("../models/todoModel");
-
-const databaseRow = {
-  id: 3,
-  task: "Read a book",
-  isCompleted: 1,
-  createdAt: "2026-10-15T00:00:00.000Z",
-  updatedAt: "2026-10-15T00:00:00.000Z",
-};
+const { Todo, getTodos, createTodo, updateTodo, deleteTodo } = require("../models/todoModel");
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  jest.restoreAllMocks();
 });
 
 describe("Todo model", () => {
-  test("getTodos retrieves and formats all rows", async () => {
-    pool.execute.mockResolvedValue([[databaseRow]]);
+  test("schema validates task length, defaults completion, and timestamps", () => {
+    const taskPath = Todo.schema.path("task");
+    const completionPath = Todo.schema.path("isCompleted");
 
-    await expect(Todo.getTodos()).resolves.toEqual([
-      {
-        _id: 3,
-        task: "Read a book",
-        isCompleted: true,
-        createdAt: databaseRow.createdAt,
-        updatedAt: databaseRow.updatedAt,
-      },
-    ]);
-    expect(pool.execute).toHaveBeenCalledWith(
-      "SELECT id, task, isCompleted, createdAt, updatedAt FROM todos ORDER BY id ASC"
-    );
+    expect(taskPath.isRequired).toBe(true);
+    expect(taskPath.options.maxlength).toBe(255);
+    expect(taskPath.options.trim).toBe(true);
+    expect(completionPath.defaultValue).toBe(false);
+    expect(Todo.schema.options.timestamps).toBe(true);
   });
 
-  test("createTodo inserts and returns the created row", async () => {
-    pool.execute
-      .mockResolvedValueOnce([{ insertId: 3 }])
-      .mockResolvedValueOnce([[databaseRow]]);
+  test("getTodos sorts and returns todos", async () => {
+    const todos = [{ _id: "507f1f77bcf86cd799439011", task: "Read a book" }];
+    const query = {
+      sort: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(todos),
+    };
+    const find = jest.spyOn(Todo, "find").mockReturnValue(query);
 
-    await expect(Todo.createTodo({ task: "Read a book" })).resolves.toEqual({
-      _id: 3,
+    await expect(getTodos()).resolves.toEqual(todos);
+    expect(find).toHaveBeenCalledWith();
+    expect(query.sort).toHaveBeenCalledWith({ _id: 1 });
+  });
+
+  test("createTodo persists and returns the created todo", async () => {
+    const todo = {
+      _id: "507f1f77bcf86cd799439011",
       task: "Read a book",
-      isCompleted: true,
-      createdAt: databaseRow.createdAt,
-      updatedAt: databaseRow.updatedAt,
+      isCompleted: false,
+      toObject: jest.fn().mockReturnValue({
+        _id: "507f1f77bcf86cd799439011",
+        task: "Read a book",
+        isCompleted: false,
+      }),
+    };
+    const create = jest.spyOn(Todo, "create").mockResolvedValue(todo);
+
+    await expect(createTodo({ task: "Read a book" })).resolves.toEqual(
+      todo.toObject()
+    );
+    expect(create).toHaveBeenCalledWith({
+      task: "Read a book",
+      isCompleted: false,
     });
-    expect(pool.execute).toHaveBeenNthCalledWith(
-      1,
-      "INSERT INTO todos (task, isCompleted) VALUES (?, ?)",
-      ["Read a book", false]
-    );
-    expect(pool.execute).toHaveBeenNthCalledWith(
-      2,
-      "SELECT id, task, isCompleted, createdAt, updatedAt FROM todos WHERE id = ?",
-      [3]
-    );
   });
 
-  test("updateTodo updates provided task and completion fields", async () => {
-    pool.execute
-      .mockResolvedValueOnce([{}])
-      .mockResolvedValueOnce([[databaseRow]]);
+  test("updateTodo applies only validated fields and returns the updated todo", async () => {
+    const todo = { _id: "507f1f77bcf86cd799439011", task: "Read two books" };
+    const query = {
+      lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(todo),
+    };
+    const update = jest
+      .spyOn(Todo, "findByIdAndUpdate")
+      .mockReturnValue(query);
 
     await expect(
-      Todo.updateTodo(3, { task: "Read two books", isCompleted: true })
-    ).resolves.toEqual({
-      _id: 3,
-      task: "Read a book",
-      isCompleted: true,
-      createdAt: databaseRow.createdAt,
-      updatedAt: databaseRow.updatedAt,
-    });
-    expect(pool.execute).toHaveBeenNthCalledWith(
-      1,
-      "UPDATE todos SET task = ?, isCompleted = ? WHERE id = ?",
-      ["Read two books", true, 3]
+      updateTodo(todo._id, { task: "Read two books" })
+    ).resolves.toEqual(todo);
+    expect(update).toHaveBeenCalledWith(
+      todo._id,
+      { task: "Read two books" },
+      { new: true, runValidators: true }
     );
   });
 
-  test("updateTodo supports updating only the task", async () => {
-    pool.execute
-      .mockResolvedValueOnce([{}])
-      .mockResolvedValueOnce([[databaseRow]]);
+  test("updateTodo returns null when the todo does not exist", async () => {
+    const query = {
+      lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(null),
+    };
+    jest.spyOn(Todo, "findByIdAndUpdate").mockReturnValue(query);
 
-    await Todo.updateTodo(3, { task: "Read two books" });
-
-    expect(pool.execute).toHaveBeenNthCalledWith(
-      1,
-      "UPDATE todos SET task = ? WHERE id = ?",
-      ["Read two books", 3]
-    );
+    await expect(
+      updateTodo("507f1f77bcf86cd799439011", { isCompleted: true })
+    ).resolves.toBeNull();
   });
 
-  test("updateTodo returns null when no row matches", async () => {
-    pool.execute.mockResolvedValueOnce([{}]).mockResolvedValueOnce([[]]);
+  test("deleteTodo removes and returns the todo", async () => {
+    const todo = { _id: "507f1f77bcf86cd799439011", task: "Read a book" };
+    const query = {
+      lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(todo),
+    };
+    const remove = jest
+      .spyOn(Todo, "findByIdAndDelete")
+      .mockReturnValue(query);
 
-    await expect(Todo.updateTodo(99, { isCompleted: false })).resolves.toBeNull();
-    expect(pool.execute).toHaveBeenNthCalledWith(
-      1,
-      "UPDATE todos SET isCompleted = ? WHERE id = ?",
-      [false, 99]
-    );
+    await expect(deleteTodo(todo._id)).resolves.toEqual(todo);
+    expect(remove).toHaveBeenCalledWith(todo._id);
   });
 
-  test("deleteTodo returns null without deleting a missing row", async () => {
-    pool.execute.mockResolvedValueOnce([[]]);
+  test("deleteTodo returns null when the todo does not exist", async () => {
+    const query = {
+      lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(null),
+    };
+    jest.spyOn(Todo, "findByIdAndDelete").mockReturnValue(query);
 
-    await expect(Todo.deleteTodo(99)).resolves.toBeNull();
-    expect(pool.execute).toHaveBeenCalledTimes(1);
-    expect(pool.execute).toHaveBeenCalledWith(
-      "SELECT id, task, isCompleted, createdAt, updatedAt FROM todos WHERE id = ?",
-      [99]
-    );
-  });
-
-  test("deleteTodo deletes and returns an existing row", async () => {
-    pool.execute
-      .mockResolvedValueOnce([[databaseRow]])
-      .mockResolvedValueOnce([{}]);
-
-    await expect(Todo.deleteTodo(3)).resolves.toMatchObject({
-      _id: 3,
-      task: "Read a book",
-      isCompleted: true,
-    });
-    expect(pool.execute).toHaveBeenNthCalledWith(
-      2,
-      "DELETE FROM todos WHERE id = ?",
-      [3]
-    );
+    await expect(
+      deleteTodo("507f1f77bcf86cd799439011")
+    ).resolves.toBeNull();
   });
 });

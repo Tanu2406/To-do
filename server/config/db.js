@@ -1,31 +1,12 @@
-const mysql = require("mysql2/promise");
+const mongoose = require("mongoose");
 
-const requiredVariables = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"];
-const missingVariables = requiredVariables.filter(
-  (name) => process.env[name] === undefined
-);
+async function connectDatabase(uri = process.env.MONGODB_URI) {
+  if (!uri) {
+    throw new Error("MONGODB_URI environment variable is required.");
+  }
 
-if (missingVariables.length > 0) {
-  throw new Error(
-    `Missing required database environment variables: ${missingVariables.join(", ")}`
-  );
+  await mongoose.connect(uri);
+  return mongoose.connection;
 }
 
-const port = Number(process.env.DB_PORT || 3306);
-
-if (!Number.isInteger(port) || port < 1 || port > 65535) {
-  throw new Error("DB_PORT must be an integer between 1 and 65535.");
-}
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
-
-module.exports = pool;
+module.exports = { connectDatabase };

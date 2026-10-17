@@ -4,8 +4,21 @@ const todoRoutes = require("./routes/todoRoutes");
 const { baseRoot } = require("./controllers/todoController");
 
 const app = express();
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      callback(
+        null,
+        !origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)
+      );
+    },
+  })
+);
 app.use(express.json());
 app.get("/", baseRoot);
 app.use("/api", todoRoutes);

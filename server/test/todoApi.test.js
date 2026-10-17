@@ -5,12 +5,14 @@ jest.mock("../models/todoModel", () => ({
   deleteTodo: jest.fn(),
 }));
 
+process.env.CLIENT_ORIGIN = "https://todo.example";
+
 const request = require("supertest");
 const app = require("../app");
 const Todo = require("../models/todoModel");
 
 const todo = {
-  _id: 1,
+  _id: "507f1f77bcf86cd799439011",
   task: "Buy groceries",
   isCompleted: false,
   createdAt: "2026-10-15T00:00:00.000Z",
@@ -30,7 +32,25 @@ describe("Todo API", () => {
     const response = await request(app).get("/");
 
     expect(response.status).toBe(200);
-    expect(response.text).toContain("Todo API");
+    expect(response.text).toContain("MongoDB");
+  });
+
+  test("CORS allows the configured frontend origin", async () => {
+    const response = await request(app)
+      .get("/")
+      .set("Origin", "https://todo.example");
+
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "https://todo.example"
+    );
+  });
+
+  test("CORS does not allow unconfigured frontend origins", async () => {
+    const response = await request(app)
+      .get("/")
+      .set("Origin", "https://untrusted.example");
+
+    expect(response.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
   test("GET /api/get returns all todos", async () => {
@@ -109,7 +129,7 @@ describe("Todo API", () => {
     Todo.updateTodo.mockResolvedValue(updated);
 
     const response = await request(app)
-      .put("/api/update/1")
+      .put(`/api/update/${todo._id}`)
       .send({ task: " Updated ", isCompleted: true });
 
     expect(response.status).toBe(200);
@@ -117,13 +137,13 @@ describe("Todo API", () => {
       message: "Task updated successfully.",
       updated,
     });
-    expect(Todo.updateTodo).toHaveBeenCalledWith(1, {
+    expect(Todo.updateTodo).toHaveBeenCalledWith(todo._id, {
       task: "Updated",
       isCompleted: true,
     });
   });
 
-  test.each(["0", "not-an-id", "9007199254740992"])(
+  test.each(["0", "not-an-id", "507f1f77bcf86cd79943901z"])(
     "PUT /api/update/%s rejects an invalid ID",
     async (id) => {
       const response = await request(app)
@@ -144,7 +164,7 @@ describe("Todo API", () => {
     ["non-object body", null],
   ])("PUT /api/update/1 rejects %s", async (_caseName, body) => {
     const response = await request(app)
-      .put("/api/update/1")
+      .put(`/api/update/${todo._id}`)
       .send(body);
 
     expect(response.status).toBe(400);
@@ -152,11 +172,23 @@ describe("Todo API", () => {
     expect(Todo.updateTodo).not.toHaveBeenCalled();
   });
 
+  test("PUT /api/update/:id rejects _id as an immutable field", async () => {
+    const response = await request(app)
+      .put(`/api/update/${todo._id}`)
+      .send({ _id: todo._id, isCompleted: true });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      errorMessage: "Unknown field: _id.",
+    });
+    expect(Todo.updateTodo).not.toHaveBeenCalled();
+  });
+
   test("PUT /api/update/:id returns 404 when the todo does not exist", async () => {
     Todo.updateTodo.mockResolvedValue(null);
 
     const response = await request(app)
-      .put("/api/update/42")
+      .put("/api/update/507f1f77bcf86cd799439042")
       .send({ isCompleted: true });
 
     expect(response.status).toBe(404);
@@ -169,7 +201,7 @@ describe("Todo API", () => {
     Todo.updateTodo.mockRejectedValue(error);
 
     const response = await request(app)
-      .put("/api/update/1")
+      .put(`/api/update/${todo._id}`)
       .send({ task: "Updated" });
 
     expect(response.status).toBe(500);
@@ -179,17 +211,17 @@ describe("Todo API", () => {
   test("DELETE /api/delete/:id deletes an existing todo", async () => {
     Todo.deleteTodo.mockResolvedValue(todo);
 
-    const response = await request(app).delete("/api/delete/1");
+    const response = await request(app).delete(`/api/delete/${todo._id}`);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       message: "Task deleted successfully.",
       deleted: todo,
     });
-    expect(Todo.deleteTodo).toHaveBeenCalledWith(1);
+    expect(Todo.deleteTodo).toHaveBeenCalledWith(todo._id);
   });
 
-  test.each(["0", "bad-id", "9007199254740992"])(
+  test.each(["0", "bad-id", "507f1f77bcf86cd79943901z"])(
     "DELETE /api/delete/%s rejects an invalid ID",
     async (id) => {
       const response = await request(app).delete(`/api/delete/${id}`);
@@ -203,7 +235,9 @@ describe("Todo API", () => {
   test("DELETE /api/delete/:id returns 404 when the todo does not exist", async () => {
     Todo.deleteTodo.mockResolvedValue(null);
 
-    const response = await request(app).delete("/api/delete/42");
+    const response = await request(app).delete(
+      "/api/delete/507f1f77bcf86cd799439042"
+    );
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ errorMessage: "Task not found." });
@@ -214,7 +248,7 @@ describe("Todo API", () => {
     const log = jest.spyOn(console, "error").mockImplementation(() => {});
     Todo.deleteTodo.mockRejectedValue(error);
 
-    const response = await request(app).delete("/api/delete/1");
+    const response = await request(app).delete(`/api/delete/${todo._id}`);
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ errorMessage: "Unable to delete todo." });

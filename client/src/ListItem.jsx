@@ -5,9 +5,10 @@ import toast from "react-hot-toast";
 import axios from "axios";
 import Tooltip from "./Tooltip";
 import ListItemSkeleton from "./ListItemSkeleton";
+import { API_BASE_URL } from "./api";
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteTodo, toggleTodo } from "./store/todoSlice";
+import { deleteTodo, editTodo } from "./store/todoSlice";
 import styles from "./ListItem.module.scss";
 
 const ListItem = ({ setAddTask, isListLoading }) => {
@@ -15,8 +16,6 @@ const ListItem = ({ setAddTask, isListLoading }) => {
   const [isCompleteLoading, setIsCompleteLoading] = useState(false);
   const dispatch = useDispatch();
   const todoList = useSelector((state) => state.todos);
-
-  const API_BACKEND = import.meta.env.VITE_API_BASE_URL;
 
   // Set task for editing
   const handleEdit = (task) => {
@@ -34,7 +33,7 @@ const ListItem = ({ setAddTask, isListLoading }) => {
     async function deleteTodoList() {
       setIsDeleteLoading(true);
       try {
-        const res = await axios.delete(`${API_BACKEND}/delete/${_id}`, headers);
+        const res = await axios.delete(`${API_BASE_URL}/delete/${_id}`, headers);
 
         toast.success(res?.data?.message);
         dispatch(deleteTodo(_id));
@@ -52,10 +51,7 @@ const ListItem = ({ setAddTask, isListLoading }) => {
 
   // Toggle completion for a task using its unique id
   const handleComplete = (currentTask) => {
-    const updatedTask = {
-      ...currentTask,
-      isCompleted: !currentTask.isCompleted,
-    };
+    const changes = { isCompleted: !currentTask.isCompleted };
 
     const headers = {
       headers: {
@@ -66,9 +62,9 @@ const ListItem = ({ setAddTask, isListLoading }) => {
     async function updateTodoList() {
       setIsCompleteLoading(true);
       try {
-        await axios.put(
-          `${API_BACKEND}/update/${currentTask._id}`,
-          updatedTask,
+        const res = await axios.put(
+          `${API_BASE_URL}/update/${currentTask._id}`,
+          changes,
           headers
         );
 
@@ -77,7 +73,7 @@ const ListItem = ({ setAddTask, isListLoading }) => {
             ? `${currentTask.task} - Task not completed`
             : `${currentTask.task} - Task completed`
         );
-        dispatch(toggleTodo(currentTask._id));
+        dispatch(editTodo(res.data.updated));
       } catch (err) {
         const message =
           err.response?.data?.errorMessage || "Something went wrong!";

@@ -1,20 +1,17 @@
 # Todo App
 
-A full-stack todo app with a React, Redux Toolkit, and Sass modules client, plus a Node.js and Express API backed by MySQL.
+A full-stack todo app with a React, Redux Toolkit, and Sass modules client and
+a Node.js/Express API backed by MongoDB Atlas.
 
 ## Prerequisites
 
 - Node.js 18 or newer
-- MySQL 8 or compatible
+- A MongoDB Atlas cluster (or another MongoDB deployment)
 
-## Setup
+## Local setup
 
-1. Create the MySQL database and `todos` table using the supplied schema:
-
-   ```bash
-   mysql -u YOUR_MYSQL_USER -p < server/schema.sql
-   ```
-
+1. Create a MongoDB Atlas database user with read/write access to the application
+   database. Add your development IP address to the Atlas IP access list.
 2. Configure the server:
 
    ```bash
@@ -22,10 +19,10 @@ A full-stack todo app with a React, Redux Toolkit, and Sass modules client, plus
    npm install
    ```
 
-   Add the MySQL values from `server/.env.example` to `server/.env`:
-   `DB_HOST`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME`. `DB_PORT` defaults to
-   `3306`, and the API `PORT` defaults to `5000`.
-
+   Copy `server/.env.example` to `server/.env` and set `MONGODB_URI` to the
+   connection string for your database. URL-encode special characters in the
+   username or password. `PORT` defaults to `5000`; `CLIENT_ORIGIN` defaults to
+   no origin restrictions for local development.
 3. Configure the client:
 
    ```bash
@@ -33,9 +30,8 @@ A full-stack todo app with a React, Redux Toolkit, and Sass modules client, plus
    npm install
    ```
 
-   Copy `client/.env.example` to `client/.env`. The default API URL is
-   `http://localhost:5000/api`.
-
+   Copy `client/.env.example` to `client/.env`. Set `VITE_API_BASE_URL` to the
+   backend URL ending in `/api` (locally, `http://localhost:5000/api`).
 4. Start the API and client in separate terminals:
 
    ```bash
@@ -49,7 +45,7 @@ A full-stack todo app with a React, Redux Toolkit, and Sass modules client, plus
    ```
 
    Open [http://localhost:3000](http://localhost:3000). The API connects to
-   MySQL before it starts accepting requests.
+   MongoDB before it starts accepting requests.
 
 ## API
 
@@ -62,26 +58,81 @@ All routes are prefixed with `/api`:
 | `PUT` | `/update/:id` | Update `task` and/or `isCompleted` |
 | `DELETE` | `/delete/:id` | Delete a todo |
 
-Todo tasks must be non-empty strings up to 255 characters. `isCompleted`, when
-provided, must be a boolean. Successful create and update responses retain the
-existing `newList` and `updated` response properties used by the client.
+Todo IDs are MongoDB ObjectIds. Tasks must be non-empty strings up to 255
+characters. `isCompleted`, when provided, must be a boolean. Successful create
+and update responses retain the `newList` and `updated` response properties.
+The API has no authentication; CORS restricts browser origins but does not
+restrict direct API clients. Existing rows in the former MySQL database are
+not copied automatically. The old `server/schema.sql` is not used by the
+MongoDB backend.
+
+## Deployment
+
+### MongoDB Atlas
+
+1. In Atlas, create a dedicated database user with the `readWrite` role on the
+   application database. Do not use an Atlas account credential as the
+   application database user.
+2. Under **Network Access**, allow the outbound IP addresses/ranges shown for
+   the Render web service. Prefer this over opening access to every IP address.
+   Render's outbound IP ranges may change; keep the Atlas access list in sync.
+3. Copy the Atlas connection string and replace its database name with the
+   application database name. URL-encode any reserved characters in the user
+   name or password. Keep this value in Render's secret environment variable
+   settings only.
+
+### Render backend
+
+The root `render.yaml` configures a Node web service using `server/` as its
+root, `npm ci` as its build command, `npm start` as its start command, and `/`
+as its health check.
+
+1. In Render, create a **Blueprint** from this GitHub repository and review the
+   `mern-todo-api` service.
+2. Set the secret `MONGODB_URI` environment variable to the Atlas connection
+   string. Render supplies `PORT`; the server listens on that port (and uses
+   `5000` locally).
+3. Set `CLIENT_ORIGIN` to the exact deployed frontend origin, such as
+   `https://your-site.netlify.app` (no trailing slash). Multiple origins can be
+   comma-separated.
+4. Deploy and verify the service health page at `/`.
+
+### Netlify frontend
+
+The existing `client/netlify.toml` configures the frontend build from `client/`.
+
+1. Connect this GitHub repository to Netlify; keep the configured base directory,
+   build command, and publish directory.
+2. In the Netlify site's environment variables, set `VITE_API_BASE_URL` to the
+   Render service URL ending in `/api`, for example
+   `https://your-service.onrender.com/api`.
+3. Redeploy the site after setting the variable. The frontend build fails if
+   `VITE_API_BASE_URL` is missing or is not an absolute HTTP(S) URL.
+4. Set Render's `CLIENT_ORIGIN` to the deployed Netlify origin and redeploy the
+   backend.
+
+Never put `MONGODB_URI` or other credentials in frontend variables, source
+files, or committed `.env` files. The frontend API URL is public and is not a
+secret.
 
 ## Tests and build
 
-With the server environment configured and the schema created in that database,
-run the API integration tests:
+Run the backend unit/API tests:
 
 ```bash
 cd server
 npm test
 ```
 
-The CRUD integration test creates a uniquely named row, verifies its persisted
-state through the API, and removes it when finished. Build and lint the client
-with:
+Build and lint the client:
 
 ```bash
 cd client
 npm run build
 npm run lint
 ```
+
+The backend starts only after MongoDB connects. To verify a deployment, check
+the Render health page, load the Netlify app, and create, read, update, and
+delete a uniquely named todo; reload the page to verify persistence. Use only
+non-sensitive test data.
