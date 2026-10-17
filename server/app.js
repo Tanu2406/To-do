@@ -31,6 +31,12 @@ app.use(express.json());
 
 app.get("/", baseRoot);
 app.use("/api", todoRoutes);
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    message: "Todo API is running",
+  });
+});
 
 app.use((err, req, res, next) => {
   if (res.headersSent) {
