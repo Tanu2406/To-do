@@ -1,0 +1,74 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Check and deploy frontend
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: client
+
+      - name: Test backend
+        run: npm test
+        working-directory: server
+
+      - name: Load production API URL from Netlify
+        working-directory: client
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: |
+          api_url="$(npx --yes netlify-cli env:get VITE_API_BASE_URL --context production --scope builds --site "$NETLIFY_SITE_ID")"
+          if ! node --input-type=module -e '
+            const apiUrl = new URL(process.argv[1]);
+            if (!["http:", "https:"].includes(apiUrl.protocol) ||
+                apiUrl.pathname.replace(/\/+$/, "") !== "/api") {
+              console.error("Netlify VITE_API_BASE_URL must be an HTTP(S) URL ending in /api.");
+              process.exit(1);
+            }
+          ' "$api_url"; then
+            exit 1
+          fi
+          printf 'VITE_API_BASE_URL=%s\n' "$api_url" >> "$GITHUB_ENV"
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: client
+
+      - name: Deploy to Netlify production
+        working-directory: client
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: npx --yes netlify-cli deploy --prod --no-build --dir dist --site "$NETLIFY_SITE_ID"

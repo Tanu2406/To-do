@@ -111,6 +111,28 @@ The existing `client/netlify.toml` configures the frontend build from `client/`.
 4. Set Render's `CLIENT_ORIGIN` to the deployed Netlify origin and redeploy the
    backend.
 
+### GitHub Actions deployment
+
+The `.github/workflows/deploy.yml` workflow runs on pushes to `main` and can be
+started manually from the `main` branch in GitHub Actions. It installs the
+client and server dependencies from their lockfiles, lints the client, runs the
+server test suite, builds the client, and deploys `client/dist` to Netlify
+production. Deployment is skipped for manual runs on other branches.
+
+Add these repository secrets under **Settings > Secrets and variables >
+Actions**:
+
+- `NETLIFY_AUTH_TOKEN`: a Netlify personal access token for the account that
+  owns the site.
+- `NETLIFY_SITE_ID`: the target Netlify site's ID.
+
+The workflow reads the production `VITE_API_BASE_URL` from the Netlify site's
+environment variables, so keep that variable configured for the production
+context and Builds scope as described above. No additional GitHub variable or
+secret is needed for the API URL. If the site is already configured to publish
+automatically from its Git connection, turn off those Git-triggered production
+deploys so Netlify cannot publish before the GitHub checks pass.
+
 Never put `MONGODB_URI` or other credentials in frontend variables, source
 files, or committed `.env` files. The frontend API URL is public and is not a
 secret.
