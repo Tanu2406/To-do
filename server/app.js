@@ -27,6 +27,8 @@ app.use(
   })
 );
 
+app.locals.allowedOrigins = allowedOrigins;
+
 app.use(express.json());
 
 app.get("/", baseRoot);

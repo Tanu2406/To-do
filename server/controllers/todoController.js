@@ -80,6 +80,7 @@ exports.createTask = async (req, res) => {
 
   try {
     const newList = await Todo.createTodo(changes);
+    req.app.locals.io?.emit("todo:created", newList);
     return res
       .status(201)
       .json({ message: "Task created successfully.", newList });
@@ -99,6 +100,7 @@ exports.deleteTask = async (req, res) => {
     if (!deleted) {
       return res.status(404).json({ errorMessage: "Task not found." });
     }
+    req.app.locals.io?.emit("todo:deleted", { _id: deleted._id });
     return res
       .status(200)
       .json({ message: "Task deleted successfully.", deleted });
@@ -124,6 +126,7 @@ exports.updateTask = async (req, res) => {
       return res.status(404).json({ errorMessage: "Task not found." });
     }
 
+    req.app.locals.io?.emit("todo:updated", updated);
     return res
       .status(200)
       .json({ message: "Task updated successfully.", updated });

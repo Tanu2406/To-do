@@ -28,10 +28,37 @@
 .heading {
   @include flex-row($space-3, center, center);
 
+  width: 100%;
   color: $color-gray-800;
   font-size: $font-size-3xl;
   line-height: $line-height-3xl;
   font-weight: $font-weight-semibold;
+}
+
+.connectionStatus {
+  @include flex-row($space-1, flex-end, center);
+
+  margin-left: auto;
+  color: $color-gray-700;
+  font-size: $font-size-xs;
+  line-height: $line-height-xs;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.connectionIndicator {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: $color-gray-400;
+}
+
+.connected .connectionIndicator {
+  background-color: $color-green-600;
+}
+
+.reconnecting .connectionIndicator {
+  background-color: $color-purple-500;
 }
 
 .form {

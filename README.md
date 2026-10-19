@@ -31,7 +31,8 @@ a Node.js/Express API backed by MongoDB Atlas.
    ```
 
    Copy `client/.env.example` to `client/.env`. Set `VITE_API_BASE_URL` to the
-   backend URL ending in `/api` (locally, `http://localhost:5000/api`).
+   backend URL ending in `/api` (locally, `http://localhost:5000/api`) and
+   `VITE_SOCKET_URL` to the backend origin (locally, `http://localhost:5000`).
 4. Start the API and client in separate terminals:
 
    ```bash
@@ -45,7 +46,10 @@ a Node.js/Express API backed by MongoDB Atlas.
    ```
 
    Open [http://localhost:3000](http://localhost:3000). The API connects to
-   MongoDB before it starts accepting requests.
+   MongoDB before it starts accepting requests. Open the app in two browser
+   windows and create, edit, complete, or delete a todo in one; the other window
+   should update without refreshing. The connection indicator shows the current
+   Socket.IO connection state.
 
 ## API
 
@@ -105,9 +109,10 @@ The existing `client/netlify.toml` configures the frontend build from `client/`.
    build command, and publish directory.
 2. In the Netlify site's environment variables, set `VITE_API_BASE_URL` to the
    Render service URL ending in `/api`, for example
-   `https://your-service.onrender.com/api`.
-3. Redeploy the site after setting the variable. The frontend build fails if
-   `VITE_API_BASE_URL` is missing or is not an absolute HTTP(S) URL.
+   `https://your-service.onrender.com/api`, and `VITE_SOCKET_URL` to the Render
+   service origin, for example `https://your-service.onrender.com`.
+3. Redeploy the site after setting the variables. The frontend build fails if
+   either URL is missing or is not an absolute HTTP(S) URL.
 4. Set Render's `CLIENT_ORIGIN` to the deployed Netlify origin and redeploy the
    backend.
 
@@ -126,12 +131,13 @@ Actions**:
   owns the site.
 - `NETLIFY_SITE_ID`: the target Netlify site's ID.
 
-The workflow reads the production `VITE_API_BASE_URL` from the Netlify site's
-environment variables, so keep that variable configured for the production
-context and Builds scope as described above. No additional GitHub variable or
-secret is needed for the API URL. If the site is already configured to publish
-automatically from its Git connection, turn off those Git-triggered production
-deploys so Netlify cannot publish before the GitHub checks pass.
+The workflow reads the production `VITE_API_BASE_URL` and `VITE_SOCKET_URL` from
+the Netlify site's environment variables, so keep both configured for the
+production context and Builds scope as described above. No additional GitHub
+variable or secret is needed for these public URLs. If the site is already
+configured to publish automatically from its Git connection, turn off those
+Git-triggered production deploys so Netlify cannot publish before the GitHub
+checks pass.
 
 Never put `MONGODB_URI` or other credentials in frontend variables, source
 files, or committed `.env` files. The frontend API URL is public and is not a

@@ -21,10 +21,12 @@ const todo = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  app.locals.io = { emit: jest.fn() };
 });
 
 afterEach(() => {
   jest.restoreAllMocks();
+  delete app.locals.io;
 });
 
 describe("Todo API", () => {
@@ -90,6 +92,7 @@ describe("Todo API", () => {
       newList: created,
     });
     expect(Todo.createTodo).toHaveBeenCalledWith({ task: "Buy groceries" });
+    expect(app.locals.io.emit).toHaveBeenCalledWith("todo:created", created);
   });
 
   test.each([
@@ -122,6 +125,7 @@ describe("Todo API", () => {
       task: "Valid task",
       isCompleted: true,
     });
+    expect(app.locals.io.emit).not.toHaveBeenCalled();
   });
 
   test("PUT /api/update/:id updates provided fields", async () => {
@@ -141,6 +145,7 @@ describe("Todo API", () => {
       task: "Updated",
       isCompleted: true,
     });
+    expect(app.locals.io.emit).toHaveBeenCalledWith("todo:updated", updated);
   });
 
   test.each(["0", "not-an-id", "507f1f77bcf86cd79943901z"])(
@@ -193,6 +198,7 @@ describe("Todo API", () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ errorMessage: "Task not found." });
+    expect(app.locals.io.emit).not.toHaveBeenCalled();
   });
 
   test("PUT /api/update/:id reports database failures", async () => {
@@ -206,6 +212,7 @@ describe("Todo API", () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ errorMessage: "Unable to update todo." });
+    expect(app.locals.io.emit).not.toHaveBeenCalled();
   });
 
   test("DELETE /api/delete/:id deletes an existing todo", async () => {
@@ -219,6 +226,9 @@ describe("Todo API", () => {
       deleted: todo,
     });
     expect(Todo.deleteTodo).toHaveBeenCalledWith(todo._id);
+    expect(app.locals.io.emit).toHaveBeenCalledWith("todo:deleted", {
+      _id: todo._id,
+    });
   });
 
   test.each(["0", "bad-id", "507f1f77bcf86cd79943901z"])(
@@ -241,6 +251,7 @@ describe("Todo API", () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ errorMessage: "Task not found." });
+    expect(app.locals.io.emit).not.toHaveBeenCalled();
   });
 
   test("DELETE /api/delete/:id reports database failures", async () => {
@@ -252,6 +263,7 @@ describe("Todo API", () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ errorMessage: "Unable to delete todo." });
+    expect(app.locals.io.emit).not.toHaveBeenCalled();
   });
 
   test("malformed JSON receives a 400 response", async () => {

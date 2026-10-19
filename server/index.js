@@ -1,17 +1,34 @@
 const dotenvFlow = require("dotenv-flow");
 dotenvFlow.config();
 
+const http = require("node:http");
+const { Server } = require("socket.io");
 const app = require("./app");
 const mongoose = require("mongoose");
 const { connectDatabase } = require("./config/db");
 
 const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin(origin, callback) {
+      if (!origin || app.locals.allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origin not allowed by CORS"));
+    },
+    methods: ["GET", "POST"],
+  },
+});
+
+app.locals.io = io;
 
 async function startServer() {
   try {
     await connectDatabase();
     console.log("MongoDB connected successfully");
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {

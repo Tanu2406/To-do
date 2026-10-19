@@ -1,12 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { RiCalendarTodoLine } from "react-icons/ri";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { io } from "socket.io-client";
 import ListItem from "./ListItem";
-import { API_BASE_URL } from "./api";
-import { addTodo, editTodo, setTodos } from "./store/todoSlice";
+import { API_BASE_URL, SOCKET_URL } from "./api";
+import {
+  deleteTodo,
+  editTodo,
+  setTodos,
+  upsertTodo,
+} from "./store/todoSlice";
 import styles from "./ToDoList.module.scss";
+
+const socket = io(SOCKET_URL, {
+  autoConnect: false,
+  reconnection: true,
+});
 
 const ToDoList = () => {
   // Initial state object for a task
@@ -17,27 +28,95 @@ const ToDoList = () => {
   const [addTask, setAddTask] = useState(initialValue);
   const [isListLoading, setIsListLoading] = useState(true);
   const [isButtonLoading, setButtonLoading] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const dispatch = useDispatch();
-
-  // fetch todo using axios with async/await try/catch block
-  const fetchTodoList = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/get`);
-
-      dispatch(setTodos(response.data));
-    } catch (err) {
-      const message =
-        err.response?.data?.errorMessage || "Something went wrong!";
-      console.error("Error:", message);
-      toast.error(message);
-    } finally {
-      setIsListLoading(false);
-    }
-  };
+  const pendingSocketEvents = useRef(null);
 
   useEffect(() => {
-    fetchTodoList();
-  }, []);
+    let isActive = true;
+    let hasConnected = false;
+    let failedInitialConnection = false;
+    let syncRequested = false;
+    const queueOrDispatch = (action) => {
+      if (pendingSocketEvents.current) {
+        pendingSocketEvents.current.push(action);
+      } else {
+        dispatch(action);
+      }
+    };
+    const handleCreated = (todo) => queueOrDispatch(upsertTodo(todo));
+    const handleUpdated = (todo) => queueOrDispatch(upsertTodo(todo));
+    const handleDeleted = ({ _id }) => queueOrDispatch(deleteTodo(_id));
+    const refreshTodoList = async () => {
+      if (!isActive) return;
+      if (pendingSocketEvents.current) {
+        syncRequested = true;
+        return;
+      }
+
+      pendingSocketEvents.current = [];
+      try {
+        const response = await axios.get(`${API_BASE_URL}/get`);
+        if (!isActive) return;
+
+        dispatch(setTodos(response.data));
+      } catch (err) {
+        if (!isActive) return;
+        const message =
+          err.response?.data?.errorMessage || "Something went wrong!";
+        console.error("Error:", message);
+        toast.error(message);
+      } finally {
+        if (isActive) {
+          pendingSocketEvents.current.forEach((action) => dispatch(action));
+          pendingSocketEvents.current = null;
+          setIsListLoading(false);
+
+          if (syncRequested) {
+            syncRequested = false;
+            refreshTodoList();
+          }
+        }
+      }
+    };
+    const handleConnect = () => {
+      setConnectionStatus("connected");
+      if (hasConnected || failedInitialConnection) {
+        refreshTodoList();
+      }
+      hasConnected = true;
+      failedInitialConnection = false;
+    };
+    const handleDisconnect = () => {
+      setConnectionStatus(socket.active ? "reconnecting" : "disconnected");
+    };
+    const handleConnectError = () => {
+      setConnectionStatus(socket.active ? "reconnecting" : "disconnected");
+      if (!hasConnected) failedInitialConnection = true;
+    };
+
+    pendingSocketEvents.current = null;
+    socket.on("todo:created", handleCreated);
+    socket.on("todo:updated", handleUpdated);
+    socket.on("todo:deleted", handleDeleted);
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleConnectError);
+    socket.connect();
+    refreshTodoList();
+
+    return () => {
+      isActive = false;
+      pendingSocketEvents.current = null;
+      socket.off("todo:created", handleCreated);
+      socket.off("todo:updated", handleUpdated);
+      socket.off("todo:deleted", handleDeleted);
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("connect_error", handleConnectError);
+      socket.disconnect();
+    };
+  }, [dispatch]);
 
   // Update input value
   const handleChange = (event) => {
@@ -99,7 +178,7 @@ const ToDoList = () => {
         try {
           const res = await axios.post(`${API_BASE_URL}/new`, newTask, headers);
 
-          dispatch(addTodo(res.data.newList));
+          dispatch(upsertTodo(res.data.newList));
           toast.success(res?.data?.message);
 
           setAddTask(initialValue);
@@ -132,6 +211,18 @@ const ToDoList = () => {
         <div className={styles.heading}>
           <RiCalendarTodoLine />
           <h1>To-Do List</h1>
+          <div
+            className={`${styles.connectionStatus} ${styles[connectionStatus]}`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className={styles.connectionIndicator} aria-hidden="true" />
+            {connectionStatus === "connected"
+              ? "Connected"
+              : connectionStatus === "reconnecting"
+                ? "Reconnecting"
+                : "Disconnected"}
+          </div>
         </div>
 
         {/* Form submission handles both button click and Enter key */}
@@ -162,10 +253,7 @@ const ToDoList = () => {
         </form>
 
         {/* Render tasks using ListItem component */}
-        <ListItem
-          setAddTask={setAddTask}
-          isListLoading={isListLoading}
-        />
+        <ListItem setAddTask={setAddTask} isListLoading={isListLoading} />
       </div>
     </div>
   );

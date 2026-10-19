@@ -43,24 +43,31 @@ jobs:
         run: npm test
         working-directory: server
 
-      - name: Load production API URL from Netlify
+      - name: Load production frontend URLs from Netlify
         working-directory: client
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: |
           api_url="$(npx --yes netlify-cli env:get VITE_API_BASE_URL --context production --scope builds --site "$NETLIFY_SITE_ID")"
+          socket_url="$(npx --yes netlify-cli env:get VITE_SOCKET_URL --context production --scope builds --site "$NETLIFY_SITE_ID")"
           if ! node --input-type=module -e '
-            const apiUrl = new URL(process.argv[1]);
+            const [apiUrl, socketUrl] = process.argv.slice(1).map((value) => new URL(value));
             if (!["http:", "https:"].includes(apiUrl.protocol) ||
                 apiUrl.pathname.replace(/\/+$/, "") !== "/api") {
               console.error("Netlify VITE_API_BASE_URL must be an HTTP(S) URL ending in /api.");
               process.exit(1);
             }
-          ' "$api_url"; then
+            if (!["http:", "https:"].includes(socketUrl.protocol) ||
+                socketUrl.pathname !== "/") {
+              console.error("Netlify VITE_SOCKET_URL must be an HTTP(S) backend origin.");
+              process.exit(1)
+            }
+          ' "$api_url" "$socket_url"; then
             exit 1
           fi
           printf 'VITE_API_BASE_URL=%s\n' "$api_url" >> "$GITHUB_ENV"
+          printf 'VITE_SOCKET_URL=%s\n' "$socket_url" >> "$GITHUB_ENV"
 
       - name: Build frontend
         run: npm run build
