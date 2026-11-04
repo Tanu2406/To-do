@@ -1,150 +1,49 @@
-import { FaCheckCircle, FaRegCircle } from "react-icons/fa";
+import { memo, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { RiDeleteBin6Line } from "react-icons/ri";
 import { TbEdit } from "react-icons/tb";
-import toast from "react-hot-toast";
-import axios from "axios";
 import Tooltip from "./Tooltip";
 import ListItemSkeleton from "./ListItemSkeleton";
-import { API_BASE_URL } from "./api";
-import { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { deleteTodo, editTodo } from "./store/todoSlice";
+import { deleteNote } from "./store/notesSlice";
 import styles from "./ListItem.module.scss";
 
-const ListItem = ({ setAddTask, isListLoading }) => {
-  const [isDeleteLoading, setIsDeleteLoading] = useState(false);
-  const [isCompleteLoading, setIsCompleteLoading] = useState(false);
-  const dispatch = useDispatch();
-  const todoList = useSelector((state) => state.todos);
-
-  // Set task for editing
-  const handleEdit = (task) => {
-    setAddTask(task);
-  };
-
-  // Delete task using its unique id
-  const handleDelete = (_id) => {
-    const headers = {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    };
-
-    async function deleteTodoList() {
-      setIsDeleteLoading(true);
-      try {
-        const res = await axios.delete(`${API_BASE_URL}/delete/${_id}`, headers);
-
-        toast.success(res?.data?.message);
-        dispatch(deleteTodo(_id));
-      } catch (err) {
-        const message =
-          err.response?.data?.errorMessage || "Something went wrong!";
-        console.error("Error:", message);
-        toast.error(message);
-      } finally {
-        setIsDeleteLoading(false);
-      }
-    }
-    deleteTodoList();
-  };
-
-  // Toggle completion for a task using its unique id
-  const handleComplete = (currentTask) => {
-    const changes = { isCompleted: !currentTask.isCompleted };
-
-    const headers = {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    };
-
-    async function updateTodoList() {
-      setIsCompleteLoading(true);
-      try {
-        const res = await axios.put(
-          `${API_BASE_URL}/update/${currentTask._id}`,
-          changes,
-          headers
-        );
-
-        toast.success(
-          currentTask.isCompleted
-            ? `${currentTask.task} - Task not completed`
-            : `${currentTask.task} - Task completed`
-        );
-        dispatch(editTodo(res.data.updated));
-      } catch (err) {
-        const message =
-          err.response?.data?.errorMessage || "Something went wrong!";
-        console.error("Error:", message);
-        toast.error(message);
-      } finally {
-        setIsCompleteLoading(false);
-      }
-    }
-    updateTodoList();
-  };
+const NoteRow = memo(function NoteRow({ note, setAddTask, onDelete, isSaving }) {
+  const editNote = () => setAddTask({ _id: note._id, task: note.title, content: note.content });
 
   return (
-    <div className={styles.list}>
-      {isListLoading ? (
-        <ListItemSkeleton />
-      ) : (
-        todoList.map((list) => (
-          <div key={list._id} className={styles.item}>
-            <div
-              className={`${styles.task} ${
-                isCompleteLoading ? styles.busy : ""
-              }`}
-              onClick={() => !isCompleteLoading && handleComplete(list)}
-            >
-              <span className={styles.completionIcon}>
-                {list.isCompleted ? (
-                  <FaCheckCircle
-                    className={styles.completedIcon}
-                    size={22}
-                  />
-                ) : (
-                  <FaRegCircle className={styles.pendingIcon} size={22} />
-                )}
-              </span>
+    <li className={styles.item}>
+      <span className={styles.task}>{note.title}</span>
+      <div className={styles.actions}>
+        <Tooltip text="Edit">
+          <button type="button" className={styles.editAction} aria-label={`Edit note: ${note.title}`} onClick={editNote}>
+            <TbEdit size={20} aria-hidden="true" />
+          </button>
+        </Tooltip>
+        <Tooltip text="Delete">
+          <button type="button" className={styles.deleteAction} aria-label={`Delete note: ${note.title}`} disabled={isSaving} onClick={() => onDelete(note._id)}>
+            <RiDeleteBin6Line size={20} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </div>
+    </li>
+  );
+});
 
-              <span
-                className={`${styles.taskText} ${
-                  list.isCompleted ? styles.completed : ""
-                }`}
-              >
-                {list.task}
-              </span>
-            </div>
+const ListItem = ({ setAddTask, isListLoading }) => {
+  const dispatch = useDispatch();
+  const { items, isSaving } = useSelector((state) => state.notes);
+  const handleDelete = useCallback((id) => dispatch(deleteNote(id)), [dispatch]);
 
-            <div className={styles.actions}>
-              <Tooltip text="Edit">
-                <div
-                  className={styles.editAction}
-                  onClick={() => handleEdit(list)}
-                >
-                  <TbEdit size={20} />
-                </div>
-              </Tooltip>
-              <Tooltip text="Delete">
-                <div
-                  className={`${styles.deleteAction} ${
-                    isDeleteLoading ? styles.disabled : ""
-                  }`}
-                  onClick={() => {
-                    if (!isDeleteLoading) handleDelete(list._id);
-                  }}
-                >
-                  <RiDeleteBin6Line size={20} />
-                </div>
-              </Tooltip>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
+  if (isListLoading) {
+    return <ul className={styles.list} aria-busy="true"><li><ListItemSkeleton /></li></ul>;
+  }
+
+  return (
+    <ul className={styles.list} aria-label="Notes">
+      {items.map((note) => (
+        <NoteRow key={note._id} note={note} setAddTask={setAddTask} onDelete={handleDelete} isSaving={isSaving} />
+      ))}
+    </ul>
   );
 };
 

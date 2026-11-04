@@ -2,7 +2,7 @@ import styles from "./ListItemSkeleton.module.scss";
 
 const ListItemSkeleton = () => {
   return (
-    <div className={styles.skeletonList}>
+    <div className={styles.skeletonList} aria-hidden="true">
       {Array(5)
         .fill(0)
         .map((_, index) => (

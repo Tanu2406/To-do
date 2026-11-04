@@ -8,6 +8,7 @@ jest.mock("../models/todoModel", () => ({
 process.env.CLIENT_ORIGIN = "https://todo.example";
 
 const request = require("supertest");
+const mongoose = require("mongoose");
 const app = require("../app");
 const Todo = require("../models/todoModel");
 
@@ -47,11 +48,60 @@ describe("Todo API", () => {
     );
   });
 
+  test("CORS allows the local development frontend", async () => {
+    const response = await request(app)
+      .get("/")
+      .set("Origin", "http://localhost:3000");
+
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "http://localhost:3000"
+    );
+  });
+
   test("CORS does not allow unconfigured frontend origins", async () => {
     const response = await request(app)
       .get("/")
       .set("Origin", "https://untrusted.example");
 
+    expect(response.status).toBe(403);
+    expect(response.headers["access-control-allow-origin"]).toBeUndefined();
+    expect(response.body).toEqual({
+      errorMessage: "Origin not allowed by CORS.",
+    });
+  });
+
+  test("Helmet sets security headers", async () => {
+    const response = await request(app).get("/");
+
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["x-frame-options"]).toBe("SAMEORIGIN");
+    expect(response.headers["x-powered-by"]).toBeUndefined();
+  });
+
+  test("CORS handles allowed preflight requests", async () => {
+    const response = await request(app)
+      .options("/api/new")
+      .set("Origin", "https://todo.example")
+      .set("Access-Control-Request-Method", "POST")
+      .set("Access-Control-Request-Headers", "content-type");
+
+    expect(response.status).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe(
+      "https://todo.example"
+    );
+    expect(response.headers["access-control-allow-methods"]).toContain("POST");
+    expect(response.headers["access-control-allow-headers"]).toContain(
+      "Content-Type"
+    );
+  });
+
+  test("CORS rejects unapproved preflight requests", async () => {
+    const response = await request(app)
+      .options("/api/new")
+      .set("Origin", "https://untrusted.example")
+      .set("Access-Control-Request-Method", "POST");
+
+    expect(response.status).toBe(403);
     expect(response.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
@@ -126,6 +176,21 @@ describe("Todo API", () => {
       isCompleted: true,
     });
     expect(app.locals.io.emit).not.toHaveBeenCalled();
+  });
+
+  test("POST /api/new reports Mongoose validation failures as client errors", async () => {
+    Todo.createTodo.mockRejectedValue(
+      new mongoose.Error.ValidationError()
+    );
+
+    const response = await request(app)
+      .post("/api/new")
+      .send({ task: "Valid task" });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      errorMessage: "Todo validation failed.",
+    });
   });
 
   test("PUT /api/update/:id updates provided fields", async () => {
@@ -293,5 +358,39 @@ describe("Todo API", () => {
       "Request error:",
       expect.objectContaining({ type: "entity.too.large" })
     );
+  });
+
+  test("write requests receive a 429 after the stricter mutation limit", async () => {
+    let response;
+
+    for (let attempt = 0; attempt < 31; attempt += 1) {
+      response = await request(app).post("/api/new").send({});
+      if (response.status === 429) {
+        break;
+      }
+    }
+
+    expect(response.status).toBe(429);
+    expect(response.headers["ratelimit-limit"]).toBe("30");
+    expect(response.body).toEqual({
+      errorMessage: "Too many requests. Please try again later.",
+    });
+  });
+
+  test("API requests receive a 429 after the general rate limit", async () => {
+    let response;
+
+    for (let attempt = 0; attempt < 101; attempt += 1) {
+      response = await request(app).get("/api/health");
+      if (response.status === 429) {
+        break;
+      }
+    }
+
+    expect(response.status).toBe(429);
+    expect(response.headers["ratelimit-limit"]).toBe("100");
+    expect(response.body).toEqual({
+      errorMessage: "Too many requests. Please try again later.",
+    });
   });
 });

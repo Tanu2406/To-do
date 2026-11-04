@@ -2,6 +2,7 @@
 
 .list {
   width: 100%;
+  list-style: none;
 
   > * + * {
     margin-top: $space-4;
@@ -15,9 +16,15 @@
 .task {
   @include flex-row($space-4, flex-start, flex-start);
 
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
 
-  &.busy {
+  &:disabled {
     cursor: not-allowed;
   }
 }
@@ -50,8 +57,14 @@
 
 .editAction,
 .deleteAction {
+  display: inline-flex;
   width: 1.25rem;
   height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .editAction {
@@ -73,6 +86,6 @@
 
   &.disabled {
     cursor: not-allowed;
-    color: $color-gray-400;
+    color: $color-gray-700;
   }
 }

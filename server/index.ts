@@ -1,11 +1,8 @@
-const dotenvFlow = require("dotenv-flow");
-dotenvFlow.config();
-
-const http = require("node:http");
-const { Server } = require("socket.io");
-const app = require("./app");
-const mongoose = require("mongoose");
-const { connectDatabase } = require("./config/db");
+import http from "node:http";
+import mongoose from "mongoose";
+import { Server } from "socket.io";
+import app = require("./app");
+import { connectDatabase } from "./config/db";
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -24,7 +21,7 @@ const io = new Server(server, {
 
 app.locals.io = io;
 
-async function startServer() {
+async function startServer(): Promise<void> {
   try {
     await connectDatabase();
     console.log("MongoDB connected successfully");
@@ -32,13 +29,20 @@ async function startServer() {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {
-    const message = process.env.MONGODB_URI
-      ? error.message.replace(process.env.MONGODB_URI, "[redacted]")
-      : error.message;
-    console.error("Unable to connect to MongoDB:", error.name, message);
+    const message =
+      error instanceof Error
+        ? process.env.MONGODB_URI
+          ? error.message.replace(process.env.MONGODB_URI, "[redacted]")
+          : error.message
+        : String(error);
+    console.error(
+      "Unable to connect to MongoDB:",
+      error instanceof Error ? error.name : "UnknownError",
+      message
+    );
     process.exitCode = 1;
     await mongoose.disconnect();
   }
 }
 
-startServer();
+void startServer();

@@ -1,11 +1,13 @@
 {
   "name": "mern-todo-server",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "dev:local": "cross-env NODE_ENV=development nodemon index.js",
+    "start": "node dist/index.js",
+    "dev": "tsx watch index.ts",
+    "dev:local": "cross-env NODE_ENV=development tsx watch index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "jest --coverage --runInBand"
   },
   "author": "Chetan Nada",
@@ -15,24 +17,35 @@
     "cors": "^2.8.6",
     "dotenv-flow": "^4.1.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
     "mongoose": "^8.24.5",
     "socket.io": "^4.8.4"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
     "cross-env": "^10.0.0",
     "jest": "^30.5.2",
-    "supertest": "^7.3.1"
+    "supertest": "^7.3.1",
+    "ts-jest": "^29.4.15",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
   },
   "jest": {
     "testEnvironment": "node",
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
     "testMatch": [
       "<rootDir>/test/**/*.test.js"
     ],
     "collectCoverageFrom": [
-      "app.js",
-      "controllers/**/*.js",
-      "models/**/*.js",
-      "routes/**/*.js"
+      "app.ts",
+      "controllers/**/*.ts",
+      "models/**/*.ts",
+      "routes/**/*.ts"
     ],
     "coverageThreshold": {
       "global": {

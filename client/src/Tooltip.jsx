@@ -6,7 +6,7 @@ const Tooltip = (props) => {
   return (
     <div className={styles.tooltip}>
       {children}
-      <div className={styles.position}>
+      <div className={styles.position} aria-hidden="true">
         <div className={styles.content}>
           {text}
           <div className={styles.arrow}></div>

@@ -21,8 +21,10 @@ a Node.js/Express API backed by MongoDB Atlas.
 
    Copy `server/.env.example` to `server/.env` and set `MONGODB_URI` to the
    connection string for your database. URL-encode special characters in the
-   username or password. `PORT` defaults to `5000`; `CLIENT_ORIGIN` defaults to
-   no origin restrictions for local development.
+   username or password. `PORT` defaults to `5000`; local development allows
+   `http://localhost:3000` and `http://127.0.0.1:3000` by default. Set
+   `CLIENT_ORIGIN` to a comma-separated list of additional exact frontend
+   origins (scheme and host, without a trailing slash).
 3. Configure the client:
 
    ```bash
@@ -70,6 +72,36 @@ restrict direct API clients. Existing rows in the former MySQL database are
 not copied automatically. The old `server/schema.sql` is not used by the
 MongoDB backend.
 
+## API security and verification
+
+The Express API uses Helmet's default secure response headers and one CORS
+allowlist shared with Socket.IO. `CLIENT_ORIGIN` must contain at least one exact
+frontend origin in production; local origins are added automatically only
+outside production. Requests without an `Origin` header (such as server-to-server
+clients) are not blocked by CORS. The app does not enable credentialed CORS.
+
+API requests are limited to 100 per IP per 15 minutes. Mutating API requests
+(`POST`, `PUT`, `PATCH`, and `DELETE`) have an additional limit of 30 per IP in
+the same window. There are currently no authentication routes to configure
+separately. Rate-limit responses use HTTP `429`, include standard
+`RateLimit-*` headers, and return the API's `errorMessage` JSON shape. In
+production, the app trusts one reverse-proxy hop for client IP detection; keep
+the service behind its configured hosting proxy.
+
+Run `npm test` from `server/` to verify normal API behavior, Helmet headers,
+allowed and rejected CORS requests, preflight handling, and both rate limits.
+For an additional passive scan with OWASP ZAP Baseline, start the API and run
+the following from a terminal with Docker Desktop:
+
+```bash
+docker run --rm -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+  -t http://host.docker.internal:5000
+```
+
+Review ZAP's alerts in context; the API has no authentication and the scan is
+not a substitute for testing against the deployed service and its configured
+frontend origin. Do not include credentials or sensitive data in scans.
+
 ## Deployment
 
 ### MongoDB Atlas
@@ -97,8 +129,8 @@ as its health check.
    string. Render supplies `PORT`; the server listens on that port (and uses
    `5000` locally).
 3. Set `CLIENT_ORIGIN` to the exact deployed frontend origin, such as
-   `https://your-site.netlify.app` (no trailing slash). Multiple origins can be
-   comma-separated.
+   `https://your-site.netlify.app` (no trailing slash). The backend requires
+   this setting in production. Multiple origins can be comma-separated.
 4. Deploy and verify the service health page at `/`.
 
 ### Netlify frontend
@@ -159,6 +191,17 @@ cd client
 npm run build
 npm run lint
 ```
+
+Generate a Vite bundle analysis report:
+
+```bash
+cd client
+npm run build:analyze
+```
+
+The interactive treemap report is written to `client/dist/bundle-analysis.html`.
+Like the production build, this command requires `VITE_API_BASE_URL` and
+`VITE_SOCKET_URL` to be configured in the client environment.
 
 The backend starts only after MongoDB connects. To verify a deployment, check
 the Render health page, load the Netlify app, and create, read, update, and

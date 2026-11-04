@@ -1,11 +1,9 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import { visualizer } from "rollup-plugin-visualizer";
 
 export default defineConfig(({ mode }) => {
-  const {
-    VITE_API_BASE_URL: apiBaseUrl,
-    VITE_SOCKET_URL: socketUrl,
-  } = loadEnv(
+  const { VITE_API_BASE_URL: apiBaseUrl } = loadEnv(
     mode,
     process.cwd(),
     "VITE_"
@@ -30,25 +28,20 @@ export default defineConfig(({ mode }) => {
     throw new Error("VITE_API_BASE_URL must end with /api.");
   }
 
-  if (!socketUrl?.trim()) {
-    throw new Error("VITE_SOCKET_URL must be set to the backend origin.");
-  }
-
-  let parsedSocketUrl;
-  try {
-    parsedSocketUrl = new URL(socketUrl);
-  } catch {
-    throw new Error("VITE_SOCKET_URL must be a valid absolute URL.");
-  }
-
-  if (
-    !["http:", "https:"].includes(parsedSocketUrl.protocol) ||
-    parsedSocketUrl.pathname !== "/"
-  ) {
-    throw new Error("VITE_SOCKET_URL must be an HTTP(S) backend origin.");
-  }
-
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      ...(mode === "analyze"
+        ? [
+            visualizer({
+              filename: "dist/bundle-analysis.html",
+              template: "treemap",
+              gzipSize: true,
+              brotliSize: true,
+              open: false,
+            }),
+          ]
+        : []),
+    ],
   };
 });

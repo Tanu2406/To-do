@@ -34,6 +34,11 @@ h1 {
 }
 
 input::placeholder {
-  color: $color-gray-400;
+  color: $color-gray-700;
   opacity: 1;
+}
+
+:focus-visible {
+  outline: 3px solid $color-purple-700;
+  outline-offset: 3px;
 }

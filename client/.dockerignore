@@ -1,0 +1,12 @@
+node_modules
+coverage
+dist
+.git
+*.log
+npm-debug.log*
+.DS_Store
+.env
+.env.*
+.envrc
+!.env.example
+.dockerignore
