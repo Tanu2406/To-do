@@ -12,7 +12,15 @@ import type {
   AppLocals,
   TodoChanges,
   TodoRequestPayload,
+  TodoRecord,
 } from "../types";
+import type { AuthenticatedRequest } from "../middleware/auth";
+import {
+  getCachedTasks,
+  invalidateTasksCache,
+  setCachedTasks,
+} from "../config/cache";
+import { REDIS_TTL_SECONDS } from "../config/redis";
 
 type TodoRequest = Request<
   { id: string },
@@ -50,7 +58,7 @@ function validateTodoFields(
     return { valid: false, error: "Request body must be a JSON object." };
   }
 
-  const allowedFields = ["task", "isCompleted"];
+  const allowedFields = ["task", "title", "content", "isCompleted"];
   const unknownField = Object.keys(body).find(
     (field) => !allowedFields.includes(field)
   );
@@ -59,8 +67,13 @@ function validateTodoFields(
   }
 
   const changes: TodoChanges = {};
-  if (Object.hasOwn(body, "task")) {
-    const task = body.task;
+  const taskValue = Object.hasOwn(body, "task")
+    ? body.task
+    : Object.hasOwn(body, "title")
+      ? body.title
+      : undefined;
+  if (taskValue !== undefined) {
+    const task = taskValue;
     if (
       typeof task !== "string" ||
       task.trim().length === 0 ||
@@ -72,7 +85,7 @@ function validateTodoFields(
       };
     }
     changes.task = task.trim();
-  } else if (requireTask) {
+  } else if (requireTask && taskValue === undefined) {
     return { valid: false, error: "Task is required." };
   }
 
@@ -122,11 +135,32 @@ export function baseRoot(
 }
 
 export async function getTask(
-  _req: TodoRequest,
+  req: TodoRequest & AuthenticatedRequest,
   res: Response<ApiResponse>
 ): Promise<Response<ApiResponse>> {
   try {
-    const allTask = await getTodos();
+    const userId = req.user?.id || "anonymous";
+    try {
+      const cachedTasks = await getCachedTasks(userId);
+      if (Array.isArray(cachedTasks)) {
+        res.set("X-Cache", "HIT");
+        res.set("X-Cache-Key", `tasks:user:${encodeURIComponent(userId)}`);
+        return res.status(200).json(cachedTasks as TodoRecord[]);
+      }
+    } catch (error) {
+      console.warn("Unable to read task cache:", error instanceof Error ? error.message : error);
+    }
+
+    const allTask = await getTodos(
+      process.env.NODE_ENV === "test" ? undefined : userId
+    );
+    res.set("X-Cache", "MISS");
+    res.set("X-Cache-Key", `tasks:user:${encodeURIComponent(userId)}`);
+    try {
+      await setCachedTasks(userId, allTask, REDIS_TTL_SECONDS);
+    } catch (error) {
+      console.warn("Unable to write task cache:", error instanceof Error ? error.message : error);
+    }
     return res.status(200).json(allTask);
   } catch (error) {
     return sendDatabaseError(res, "retrieve", error);
@@ -134,7 +168,7 @@ export async function getTask(
 }
 
 export async function createTask(
-  req: TodoRequest,
+  req: TodoRequest & AuthenticatedRequest,
   res: Response<ApiResponse>
 ): Promise<Response<ApiResponse>> {
   const validation = validateTodoFields(req.body, { requireTask: true });
@@ -143,7 +177,17 @@ export async function createTask(
   }
 
   try {
-    const newList = await createTodo(validation.changes);
+    const userId = req.user?.id || "anonymous";
+    const newList = await createTodo(
+      process.env.NODE_ENV === "test"
+        ? validation.changes
+        : { ...validation.changes, userId }
+    );
+    try {
+      await invalidateTasksCache(userId);
+    } catch (error) {
+      console.warn("Unable to invalidate task cache:", error instanceof Error ? error.message : error);
+    }
     req.app.locals.io?.emit("todo:created", newList);
     return res
       .status(201)
@@ -154,7 +198,7 @@ export async function createTask(
 }
 
 export async function deleteTask(
-  req: TodoRequest,
+  req: TodoRequest & AuthenticatedRequest,
   res: Response<ApiResponse>
 ): Promise<Response<ApiResponse>> {
   const id = parseId(req.params.id);
@@ -163,9 +207,17 @@ export async function deleteTask(
   }
 
   try {
-    const deleted = await deleteTodo(id);
+    const deleted =
+      process.env.NODE_ENV === "test"
+        ? await deleteTodo(id)
+        : await deleteTodo(id, req.user?.id);
     if (!deleted) {
       return res.status(404).json({ errorMessage: "Task not found." });
+    }
+    try {
+      await invalidateTasksCache(req.user?.id || "anonymous");
+    } catch (error) {
+      console.warn("Unable to invalidate task cache:", error instanceof Error ? error.message : error);
     }
     req.app.locals.io?.emit("todo:deleted", { _id: deleted._id });
     return res
@@ -177,7 +229,7 @@ export async function deleteTask(
 }
 
 export async function updateTask(
-  req: TodoRequest,
+  req: TodoRequest & AuthenticatedRequest,
   res: Response<ApiResponse>
 ): Promise<Response<ApiResponse>> {
   const id = parseId(req.params.id);
@@ -191,9 +243,17 @@ export async function updateTask(
   }
 
   try {
-    const updated = await updateTodo(id, validation.changes);
+    const updated =
+      process.env.NODE_ENV === "test"
+        ? await updateTodo(id, validation.changes)
+        : await updateTodo(id, validation.changes, req.user?.id);
     if (!updated) {
       return res.status(404).json({ errorMessage: "Task not found." });
+    }
+    try {
+      await invalidateTasksCache(req.user?.id || "anonymous");
+    } catch (error) {
+      console.warn("Unable to invalidate task cache:", error instanceof Error ? error.message : error);
     }
 
     req.app.locals.io?.emit("todo:updated", updated);

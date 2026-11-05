@@ -67,10 +67,27 @@ All routes are prefixed with `/api`:
 Todo IDs are MongoDB ObjectIds. Tasks must be non-empty strings up to 255
 characters. `isCompleted`, when provided, must be a boolean. Successful create
 and update responses retain the `newList` and `updated` response properties.
-The API has no authentication; CORS restricts browser origins but does not
-restrict direct API clients. Existing rows in the former MySQL database are
+JWT authentication protects task routes; CORS additionally restricts browser
+origins. Existing rows in the former MySQL database are
 not copied automatically. The old `server/schema.sql` is not used by the
 MongoDB backend.
+
+## Redis task cache
+
+Start the optional local Redis service with Docker Compose:
+
+```bash
+docker compose up -d redis
+```
+
+Configure `server/.env` using `server/.env.example`. Task lists are cached for
+60 seconds by default under the authenticated user's key, such as
+`tasks:user:demo-user`. Mutations invalidate that user's key. Redis connection
+failures do not stop the API; requests fall back to MongoDB.
+
+Use `POST /api/auth/login` with the configured demo credentials to obtain a
+JWT, then send `Authorization: Bearer <token>` with task requests. The cache
+source is exposed as `X-Cache: HIT` or `X-Cache: MISS`.
 
 ## API security and verification
 

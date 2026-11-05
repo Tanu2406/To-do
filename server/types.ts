@@ -4,6 +4,7 @@ import type { HydratedDocument, Types } from "mongoose";
 export interface TodoFields {
   task: string;
   isCompleted: boolean;
+  userId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -9,32 +9,35 @@ export const fetchNotes = createAsyncThunk("notes/fetch", async (_, { getState, 
   try {
     const { token } = getState().auth;
     const response = await axios.get(`${API_BASE_URL}/notes`, { headers: authHeaders(token) });
-    return response.data.data;
+    const data = response.data.data || response.data;
+    return Array.isArray(data) ? data.map((note) => ({ ...note, title: note.title || note.task })) : [];
   } catch (error) {
     if (error.response?.status === 401) dispatch(logout());
-    return rejectWithValue(error.response?.data?.message || "Could not load notes.");
+    return rejectWithValue(error.response?.data?.message || error.response?.data?.errorMessage || "Could not load notes.");
   }
 });
 
 export const addNote = createAsyncThunk("notes/add", async ({ title, content }, { getState, dispatch, rejectWithValue }) => {
   try {
     const { token } = getState().auth;
-    const response = await axios.post(`${API_BASE_URL}/notes`, { title, content }, { headers: authHeaders(token) });
-    return response.data.data;
+    const response = await axios.post(`${API_BASE_URL}/notes`, { task: title, title, content }, { headers: authHeaders(token) });
+    const created = response.data.newList || response.data.data;
+    return { ...created, title: created.title || created.task };
   } catch (error) {
     if (error.response?.status === 401) dispatch(logout());
-    return rejectWithValue(error.response?.data?.message || "Could not add note.");
+    return rejectWithValue(error.response?.data?.message || error.response?.data?.errorMessage || "Could not add note.");
   }
 });
 
 export const updateNote = createAsyncThunk("notes/update", async ({ id, title, content }, { getState, dispatch, rejectWithValue }) => {
   try {
     const { token } = getState().auth;
-    const response = await axios.put(`${API_BASE_URL}/notes/${id}`, { title, content }, { headers: authHeaders(token) });
-    return response.data.data;
+    const response = await axios.put(`${API_BASE_URL}/notes/${id}`, { task: title, title, content }, { headers: authHeaders(token) });
+    const updated = response.data.updated || response.data.data;
+    return { ...updated, title: updated.title || updated.task };
   } catch (error) {
     if (error.response?.status === 401) dispatch(logout());
-    return rejectWithValue(error.response?.data?.message || "Could not update note.");
+    return rejectWithValue(error.response?.data?.message || error.response?.data?.errorMessage || "Could not update note.");
   }
 });
 
@@ -45,7 +48,7 @@ export const deleteNote = createAsyncThunk("notes/delete", async (id, { getState
     return id;
   } catch (error) {
     if (error.response?.status === 401) dispatch(logout());
-    return rejectWithValue(error.response?.data?.message || "Could not delete note.");
+    return rejectWithValue(error.response?.data?.message || error.response?.data?.errorMessage || "Could not delete note.");
   }
 });
 
@@ -55,10 +58,7 @@ const notesSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(logout, (state) => {
-        state.items = [];
-        state.error = null;
-      })
+      .addCase(logout, (state) => { state.items = []; state.error = null; })
       .addCase(fetchNotes.pending, (state) => { state.isLoading = true; state.error = null; })
       .addCase(fetchNotes.fulfilled, (state, action) => { state.isLoading = false; state.items = action.payload; })
       .addCase(fetchNotes.rejected, (state, action) => { state.isLoading = false; state.error = action.payload; })

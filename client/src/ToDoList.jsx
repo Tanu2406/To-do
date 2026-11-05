@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RiCalendarTodoLine } from "react-icons/ri";
 import { Toaster } from "react-hot-toast";
@@ -16,6 +16,10 @@ const ToDoList = () => {
   const [addTask, setAddTask] = useState(initialValue);
   const dispatch = useDispatch();
   const { isSaving, error } = useSelector((state) => state.notes);
+  const buttonText = useMemo(
+    () => isSaving ? "Processing..." : addTask._id ? "UPDATE +" : "ADD +",
+    [isSaving, addTask._id]
+  );
 
   // Update input value
   const handleChange = (event) => {
@@ -41,8 +45,6 @@ const ToDoList = () => {
       if (!addNote.rejected.match(result)) setAddTask(initialValue);
     }
   };
-
-  const buttonText = () => isSaving ? "Processing..." : addTask._id ? "UPDATE +" : "ADD +";
 
   return (
     <>
@@ -85,7 +87,7 @@ const ToDoList = () => {
                     : "Add task"
               }
             >
-              {buttonText()}
+              {buttonText}
             </button>
           </form>
 

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { Server } from "socket.io";
 import app = require("./app");
 import { connectDatabase } from "./config/db";
+import { connectRedis, disconnectRedis } from "./config/redis";
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -25,6 +26,7 @@ async function startServer(): Promise<void> {
   try {
     await connectDatabase();
     console.log("MongoDB connected successfully");
+    await connectRedis();
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
@@ -44,5 +46,14 @@ async function startServer(): Promise<void> {
     await mongoose.disconnect();
   }
 }
+
+async function shutdown(): Promise<void> {
+  await disconnectRedis();
+  await mongoose.disconnect();
+  server.close();
+}
+
+process.once("SIGINT", () => void shutdown());
+process.once("SIGTERM", () => void shutdown());
 
 void startServer();
