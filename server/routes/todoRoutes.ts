@@ -7,6 +7,7 @@ import {
   updateTask,
 } from "../controllers/todoController";
 import { authenticateUser } from "../middleware/auth";
+import { clearAuthCookie, setAuthCookie } from "../utils/authCookies";
 
 const router = Router();
 
@@ -25,7 +26,26 @@ router.post("/auth/login", (req, res) => {
     subject: userId,
     expiresIn: process.env.JWT_EXPIRES_IN || "1h",
   } as jwt.SignOptions);
+  setAuthCookie(res, token);
   return res.status(200).json({ data: { token } });
+});
+
+router.post("/auth/register", (_req, res) => {
+  return res.status(501).json({
+    errorMessage: "Registration is not enabled for this demo account.",
+  });
+});
+
+router.post("/auth/password-reset", (_req, res) => {
+  return res.status(202).json({
+    message:
+      "If this account supports password recovery, reset instructions will be sent.",
+  });
+});
+
+router.post("/auth/logout", authenticateUser, (_req, res) => {
+  clearAuthCookie(res);
+  return res.status(200).json({ message: "Logged out successfully." });
 });
 
 router.use(authenticateUser);

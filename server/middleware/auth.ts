@@ -1,5 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt from "jsonwebtoken";
+import { getAuthCookieToken } from "../utils/authCookies";
 
 export interface AuthenticatedRequest extends Request {
   user?: { id: string };
@@ -14,7 +15,7 @@ export function authenticateUser(
   const authorization = req.header("Authorization");
   const token = authorization?.startsWith("Bearer ")
     ? authorization.slice(7)
-    : undefined;
+    : getAuthCookieToken(req);
 
   if (!token) {
     if (process.env.NODE_ENV === "test") {

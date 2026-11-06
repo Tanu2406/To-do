@@ -1,4 +1,5 @@
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import dotenvFlow from "dotenv-flow";
 import express, {
   type ErrorRequestHandler,
@@ -10,6 +11,7 @@ import helmet from "helmet";
 import todoRoutes from "./routes/todoRoutes";
 import { baseRoot } from "./controllers/todoController";
 import type { ApiResponse, AppLocals } from "./types";
+import { AUTH_COOKIE_NAME } from "./utils/authCookies";
 
 dotenvFlow.config();
 
@@ -23,6 +25,9 @@ const isProduction = process.env.NODE_ENV === "production";
 
 if (isProduction && configuredOrigins.length === 0) {
   throw new Error("CLIENT_ORIGIN must be set in production.");
+}
+if (isProduction && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET must be set in production.");
 }
 
 const allowedOrigins = [
@@ -42,7 +47,25 @@ if (isProduction) {
   app.set("trust proxy", 1);
 }
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", ...allowedOrigins],
+        upgradeInsecureRequests: [],
+      },
+    },
+    crossOriginEmbedderPolicy: true,
+  })
+);
 app.use(
   cors({
     origin(origin, callback) {
@@ -54,6 +77,7 @@ app.use(
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
@@ -69,19 +93,34 @@ app.use(
     handler: rateLimitExceeded,
   })
 );
+const strictAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: rateLimitExceeded,
+});
+
 app.use(
-  "/api",
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 30,
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: (req) => !["POST", "PUT", "PATCH", "DELETE"].includes(req.method),
-    handler: rateLimitExceeded,
-  })
+  ["/api/auth/login", "/api/auth/register", "/api/auth/password-reset"],
+  strictAuthLimiter
 );
 
 app.use(express.json());
+app.use(cookieParser());
+
+app.use((req, res, next) => {
+  if (
+    ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
+    req.cookies?.[AUTH_COOKIE_NAME] &&
+    !req.header("Origin")
+  ) {
+    return res.status(403).json({
+      errorMessage: "Origin header required for cookie-authenticated requests.",
+    });
+  }
+  return next();
+});
 
 app.get("/", baseRoot);
 app.use("/api", todoRoutes);

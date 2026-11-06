@@ -78,6 +78,52 @@ describe("Todo API", () => {
     expect(response.headers["x-powered-by"]).toBeUndefined();
   });
 
+  test("Helmet sets a restrictive CSP", async () => {
+    const response = await request(app).get("/api/health");
+
+    expect(response.headers["content-security-policy"]).toContain(
+      "default-src 'self'"
+    );
+    expect(response.headers["content-security-policy"]).toContain(
+      "frame-ancestors 'none'"
+    );
+  });
+
+  test("login sets an HTTP-only authentication cookie", async () => {
+    process.env.AUTH_USERNAME = "demo";
+    process.env.AUTH_PASSWORD = "demo";
+    const response = await request(app)
+      .post("/api/auth/login")
+      .send({ username: "demo", password: "demo" });
+
+    expect(response.status).toBe(200);
+    const cookie = response.headers["set-cookie"][0];
+    expect(cookie).toContain("todo_auth_token=");
+    expect(cookie).toContain("HttpOnly");
+    expect(cookie).toContain("SameSite=Lax");
+  });
+
+  test("logout clears the authentication cookie", async () => {
+    const response = await request(app).post("/api/auth/logout");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["set-cookie"][0]).toContain(
+      "todo_auth_token=;"
+    );
+  });
+
+  test("authentication endpoints return 429 after the strict limit", async () => {
+    let response;
+    for (let attempt = 0; attempt < 11; attempt += 1) {
+      response = await request(app)
+        .post("/api/auth/login")
+        .send({ username: "demo", password: "wrong" });
+    }
+
+    expect(response.status).toBe(429);
+    expect(response.body.errorMessage).toContain("Too many requests");
+  });
+
   test("CORS handles allowed preflight requests", async () => {
     const response = await request(app)
       .options("/api/new")
@@ -358,23 +404,6 @@ describe("Todo API", () => {
       "Request error:",
       expect.objectContaining({ type: "entity.too.large" })
     );
-  });
-
-  test("write requests receive a 429 after the stricter mutation limit", async () => {
-    let response;
-
-    for (let attempt = 0; attempt < 31; attempt += 1) {
-      response = await request(app).post("/api/new").send({});
-      if (response.status === 429) {
-        break;
-      }
-    }
-
-    expect(response.status).toBe(429);
-    expect(response.headers["ratelimit-limit"]).toBe("30");
-    expect(response.body).toEqual({
-      errorMessage: "Too many requests. Please try again later.",
-    });
   });
 
   test("API requests receive a 429 after the general rate limit", async () => {

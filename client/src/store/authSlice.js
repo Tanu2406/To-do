@@ -50,6 +50,7 @@ const authSlice = createSlice({
       state.token = null;
       state.isAuthenticated = false;
       state.error = null;
+      void axios.post(`${API_BASE_URL}/auth/logout`);
     },
   },
   extraReducers: (builder) => {
