@@ -188,7 +188,12 @@ export async function createTask(
     } catch (error) {
       console.warn("Unable to invalidate task cache:", error instanceof Error ? error.message : error);
     }
-    req.app.locals.io?.emit("todo:created", newList);
+    const io = req.app.locals.io;
+    if (typeof io?.to === "function") {
+      io.to(`user:${userId}`).emit("taskCreated", newList);
+    } else {
+      io?.emit("todo:created", newList);
+    }
     return res
       .status(201)
       .json({ message: "Task created successfully.", newList });
@@ -256,7 +261,12 @@ export async function updateTask(
       console.warn("Unable to invalidate task cache:", error instanceof Error ? error.message : error);
     }
 
-    req.app.locals.io?.emit("todo:updated", updated);
+    const io = req.app.locals.io;
+    if (typeof io?.to === "function") {
+      io.to(`user:${req.user?.id || "anonymous"}`).emit("taskUpdated", updated);
+    } else {
+      io?.emit("todo:updated", updated);
+    }
     return res
       .status(200)
       .json({ message: "Task updated successfully.", updated });

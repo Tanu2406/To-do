@@ -3,7 +3,9 @@ import axios from "axios";
 import { API_BASE_URL } from "../api";
 import { logout } from "./authSlice";
 
-const authHeaders = (token) => ({ Authorization: `Bearer ${token}` });
+const authHeaders = (token) => ({
+  Authorization: token ? `Bearer ${token}` : undefined,
+});
 
 export const fetchNotes = createAsyncThunk("notes/fetch", async (_, { getState, dispatch, rejectWithValue }) => {
   try {
@@ -55,7 +57,20 @@ export const deleteNote = createAsyncThunk("notes/delete", async (id, { getState
 const notesSlice = createSlice({
   name: "notes",
   initialState: { items: [], isLoading: false, isSaving: false, error: null },
-  reducers: {},
+  reducers: {
+    taskCreated(state, action) {
+      const created = { ...action.payload, title: action.payload.title || action.payload.task };
+      if (!state.items.some((item) => item._id === created._id)) {
+        state.items.unshift(created);
+      }
+    },
+    taskUpdated(state, action) {
+      const updated = { ...action.payload, title: action.payload.title || action.payload.task };
+      const index = state.items.findIndex((item) => item._id === updated._id);
+      if (index === -1) state.items.unshift(updated);
+      else state.items[index] = updated;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(logout, (state) => { state.items = []; state.error = null; })
@@ -63,13 +78,17 @@ const notesSlice = createSlice({
       .addCase(fetchNotes.fulfilled, (state, action) => { state.isLoading = false; state.items = action.payload; })
       .addCase(fetchNotes.rejected, (state, action) => { state.isLoading = false; state.error = action.payload; })
       .addCase(addNote.pending, (state) => { state.isSaving = true; state.error = null; })
-      .addCase(addNote.fulfilled, (state, action) => { state.isSaving = false; state.items.unshift(action.payload); })
+      .addCase(addNote.fulfilled, (state, action) => {
+        state.isSaving = false;
+        if (!state.items.some((item) => item._id === action.payload._id)) state.items.unshift(action.payload);
+      })
       .addCase(addNote.rejected, (state, action) => { state.isSaving = false; state.error = action.payload; })
       .addCase(updateNote.pending, (state) => { state.isSaving = true; state.error = null; })
       .addCase(updateNote.fulfilled, (state, action) => {
         state.isSaving = false;
         const index = state.items.findIndex((note) => note._id === action.payload._id);
-        if (index !== -1) state.items[index] = action.payload;
+        if (index === -1) state.items.unshift(action.payload);
+        else state.items[index] = action.payload;
       })
       .addCase(updateNote.rejected, (state, action) => { state.isSaving = false; state.error = action.payload; })
       .addCase(deleteNote.pending, (state) => { state.isSaving = true; state.error = null; })
@@ -78,4 +97,5 @@ const notesSlice = createSlice({
   },
 });
 
+export const { taskCreated, taskUpdated } = notesSlice.actions;
 export default notesSlice.reducer;

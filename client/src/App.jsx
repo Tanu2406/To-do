@@ -1,7 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { io } from "socket.io-client";
 import ListItemSkeleton from "./ListItemSkeleton";
 import { isTokenExpired, login, logout } from "./store/authSlice";
+import { API_BASE_URL } from "./api";
+import { taskCreated, taskUpdated } from "./store/notesSlice";
 import styles from "./ToDoList.module.scss";
 
 const ToDoList = lazy(() => import("./ToDoList"));
@@ -18,6 +21,36 @@ const App = () => {
     }, 30000);
     return () => window.clearInterval(timer);
   }, [dispatch, token]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !token) return undefined;
+
+    const socketUrl = new URL(API_BASE_URL).origin;
+    const socket = io(socketUrl, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+      reconnection: true,
+    });
+
+    socket.on("taskCreated", (task) => dispatch(taskCreated(task)));
+    socket.on("taskUpdated", (task) => dispatch(taskUpdated(task)));
+    socket.on("connect_error", (error) => {
+      console.error("Realtime connection failed:", error.message);
+    });
+    socket.on("disconnect", (reason) => {
+      if (reason !== "io client disconnect") {
+        console.warn("Realtime connection lost:", reason);
+      }
+    });
+
+    return () => {
+      socket.off("taskCreated");
+      socket.off("taskUpdated");
+      socket.off("connect_error");
+      socket.off("disconnect");
+      socket.disconnect();
+    };
+  }, [dispatch, isAuthenticated, token]);
 
   if (!isAuthenticated) {
     return (

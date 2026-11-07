@@ -1,6 +1,7 @@
 import http from "node:http";
 import mongoose from "mongoose";
 import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
 import app = require("./app");
 import { connectDatabase } from "./config/db";
 import { connectRedis, disconnectRedis } from "./config/redis";
@@ -17,7 +18,34 @@ const io = new Server(server, {
       return callback(new Error("Origin not allowed by CORS"));
     },
     methods: ["GET", "POST"],
+    credentials: true,
   },
+});
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (typeof token !== "string" || token.length === 0) {
+    return next(new Error("Authentication required."));
+  }
+
+  try {
+    const payload = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "development-only-change-me"
+    ) as jwt.JwtPayload;
+    const userId = payload.sub || payload.userId;
+    if (typeof userId !== "string" || userId.length === 0) {
+      return next(new Error("Invalid authentication token."));
+    }
+    socket.data.userId = userId;
+    return next();
+  } catch {
+    return next(new Error("Invalid or expired authentication token."));
+  }
+});
+
+io.on("connection", (socket) => {
+  void socket.join(`user:${socket.data.userId}`);
 });
 
 app.locals.io = io;
