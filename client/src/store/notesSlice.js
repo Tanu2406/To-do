@@ -1,56 +1,59 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import axios from "axios";
-import { API_BASE_URL } from "../api";
+import { apolloClient } from "../apolloClient";
+import {
+  CREATE_TASK_MUTATION,
+  DELETE_TASK_MUTATION,
+  TASKS_QUERY,
+  UPDATE_TASK_MUTATION,
+} from "../graphql";
 import { logout } from "./authSlice";
 
-const authHeaders = (token) => ({
-  Authorization: token ? `Bearer ${token}` : undefined,
+const normalizeTask = (task) => ({
+  ...task,
+  _id: task.id || task._id,
+  title: task.task || task.title,
 });
 
-export const fetchNotes = createAsyncThunk("notes/fetch", async (_, { getState, dispatch, rejectWithValue }) => {
+export const fetchNotes = createAsyncThunk("notes/fetch", async (_, { dispatch, rejectWithValue }) => {
   try {
-    const { token } = getState().auth;
-    const response = await axios.get(`${API_BASE_URL}/notes`, { headers: authHeaders(token) });
-    const data = response.data.data || response.data;
-    return Array.isArray(data) ? data.map((note) => ({ ...note, title: note.title || note.task })) : [];
+    const response = await apolloClient.query({ query: TASKS_QUERY, fetchPolicy: "network-only" });
+    return response.data.tasks.map(normalizeTask);
   } catch (error) {
-    if (error.response?.status === 401) dispatch(logout());
-    return rejectWithValue(error.response?.data?.message || error.response?.data?.errorMessage || "Could not load notes.");
+    if (error.graphQLErrors?.some(({ extensions }) => extensions?.code === "UNAUTHENTICATED")) dispatch(logout());
+    return rejectWithValue(error.graphQLErrors?.[0]?.message || error.message || "Could not load notes.");
   }
 });
 
-export const addNote = createAsyncThunk("notes/add", async ({ title, content }, { getState, dispatch, rejectWithValue }) => {
+export const addNote = createAsyncThunk("notes/add", async ({ title }, { dispatch, rejectWithValue }) => {
   try {
-    const { token } = getState().auth;
-    const response = await axios.post(`${API_BASE_URL}/notes`, { task: title, title, content }, { headers: authHeaders(token) });
-    const created = response.data.newList || response.data.data;
-    return { ...created, title: created.title || created.task };
+    const response = await apolloClient.mutate({ mutation: CREATE_TASK_MUTATION, variables: { task: title } });
+    return normalizeTask(response.data.createTask);
   } catch (error) {
-    if (error.response?.status === 401) dispatch(logout());
-    return rejectWithValue(error.response?.data?.message || error.response?.data?.errorMessage || "Could not add note.");
+    if (error.graphQLErrors?.some(({ extensions }) => extensions?.code === "UNAUTHENTICATED")) dispatch(logout());
+    return rejectWithValue(error.graphQLErrors?.[0]?.message || error.message || "Could not add note.");
   }
 });
 
-export const updateNote = createAsyncThunk("notes/update", async ({ id, title, content }, { getState, dispatch, rejectWithValue }) => {
+export const updateNote = createAsyncThunk("notes/update", async ({ id, title }, { dispatch, rejectWithValue }) => {
   try {
-    const { token } = getState().auth;
-    const response = await axios.put(`${API_BASE_URL}/notes/${id}`, { task: title, title, content }, { headers: authHeaders(token) });
-    const updated = response.data.updated || response.data.data;
-    return { ...updated, title: updated.title || updated.task };
+    const response = await apolloClient.mutate({
+      mutation: UPDATE_TASK_MUTATION,
+      variables: { id, task: title },
+    });
+    return normalizeTask(response.data.updateTask);
   } catch (error) {
-    if (error.response?.status === 401) dispatch(logout());
-    return rejectWithValue(error.response?.data?.message || error.response?.data?.errorMessage || "Could not update note.");
+    if (error.graphQLErrors?.some(({ extensions }) => extensions?.code === "UNAUTHENTICATED")) dispatch(logout());
+    return rejectWithValue(error.graphQLErrors?.[0]?.message || error.message || "Could not update note.");
   }
 });
 
-export const deleteNote = createAsyncThunk("notes/delete", async (id, { getState, dispatch, rejectWithValue }) => {
+export const deleteNote = createAsyncThunk("notes/delete", async (id, { dispatch, rejectWithValue }) => {
   try {
-    const { token } = getState().auth;
-    await axios.delete(`${API_BASE_URL}/notes/${id}`, { headers: authHeaders(token) });
+    await apolloClient.mutate({ mutation: DELETE_TASK_MUTATION, variables: { id } });
     return id;
   } catch (error) {
-    if (error.response?.status === 401) dispatch(logout());
-    return rejectWithValue(error.response?.data?.message || error.response?.data?.errorMessage || "Could not delete note.");
+    if (error.graphQLErrors?.some(({ extensions }) => extensions?.code === "UNAUTHENTICATED")) dispatch(logout());
+    return rejectWithValue(error.graphQLErrors?.[0]?.message || error.message || "Could not delete note.");
   }
 });
 
@@ -58,17 +61,14 @@ const notesSlice = createSlice({
   name: "notes",
   initialState: { items: [], isLoading: false, isSaving: false, error: null },
   reducers: {
-    taskCreated(state, action) {
-      const created = { ...action.payload, title: action.payload.title || action.payload.task };
-      if (!state.items.some((item) => item._id === created._id)) {
-        state.items.unshift(created);
-      }
+    taskCreatedOrUpdated(state, action) {
+      const task = normalizeTask(action.payload);
+      const index = state.items.findIndex((item) => item._id === task._id);
+      if (index === -1) state.items.unshift(task);
+      else state.items[index] = task;
     },
-    taskUpdated(state, action) {
-      const updated = { ...action.payload, title: action.payload.title || action.payload.task };
-      const index = state.items.findIndex((item) => item._id === updated._id);
-      if (index === -1) state.items.unshift(updated);
-      else state.items[index] = updated;
+    taskDeleted(state, action) {
+      state.items = state.items.filter((item) => item._id !== action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -97,5 +97,5 @@ const notesSlice = createSlice({
   },
 });
 
-export const { taskCreated, taskUpdated } = notesSlice.actions;
+export const { taskCreatedOrUpdated, taskDeleted } = notesSlice.actions;
 export default notesSlice.reducer;

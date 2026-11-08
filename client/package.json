@@ -16,8 +16,11 @@
   "author": "Chetan Nada",
   "license": "ISC",
   "dependencies": {
+    "@apollo/client": "^4.3.7",
     "@reduxjs/toolkit": "^2.13.0",
     "axios": "^1.8.4",
+    "graphql": "^16.15.0",
+    "graphql-ws": "^6.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.5.2",
@@ -50,14 +53,19 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": ["<rootDir>/src/test/setup.js"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/src/test/setup.js"
+    ],
     "transform": {
       "^.+\\.[jt]sx?$": "babel-jest"
     },
     "moduleNameMapper": {
       "\\.(css|scss)$": "identity-obj-proxy"
     },
-    "collectCoverageFrom": ["src/**/*.{js,jsx}", "!src/**/*.test.{js,jsx}"]
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx}",
+      "!src/**/*.test.{js,jsx}"
+    ]
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.40.0"

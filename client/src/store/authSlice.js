@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import axios from "axios";
-import { API_BASE_URL } from "../api";
+import { apolloClient } from "../apolloClient";
+import { LOGIN_MUTATION } from "../graphql";
 
 const TOKEN_KEY = "skillpilot_token";
 
@@ -26,13 +26,16 @@ if (!validStoredToken) sessionStorage.removeItem(TOKEN_KEY);
 
 export const login = createAsyncThunk("auth/login", async (credentials, { rejectWithValue }) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials);
-    const token = response.data.data.token;
+    const response = await apolloClient.mutate({
+      mutation: LOGIN_MUTATION,
+      variables: credentials,
+    });
+    const token = response.data.login.token;
     if (isTokenExpired(token)) return rejectWithValue("The login token is invalid or expired.");
     sessionStorage.setItem(TOKEN_KEY, token);
     return token;
   } catch (error) {
-    return rejectWithValue(error.response?.data?.message || "Login failed.");
+    return rejectWithValue(error.graphQLErrors?.[0]?.message || error.message || "Login failed.");
   }
 });
 
@@ -50,7 +53,7 @@ const authSlice = createSlice({
       state.token = null;
       state.isAuthenticated = false;
       state.error = null;
-      void axios.post(`${API_BASE_URL}/auth/logout`);
+      void apolloClient.resetStore();
     },
   },
   extraReducers: (builder) => {

@@ -2,9 +2,17 @@ import http from "node:http";
 import mongoose from "mongoose";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
+import { ApolloServer } from "@apollo/server";
+import { expressMiddleware } from "@as-integrations/express5";
+import { makeExecutableSchema } from "@graphql-tools/schema";
+import { useServer } from "graphql-ws/use/ws";
+import { WebSocketServer } from "ws";
 import app = require("./app");
 import { connectDatabase } from "./config/db";
 import { connectRedis, disconnectRedis } from "./config/redis";
+import { typeDefs } from "./graphql/schema";
+import { resolvers } from "./graphql/resolvers";
+import { createGraphQLContext, tokenUserId } from "./graphql/context";
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -50,11 +58,42 @@ io.on("connection", (socket) => {
 
 app.locals.io = io;
 
+const schema = makeExecutableSchema({ typeDefs, resolvers });
+const apolloServer = new ApolloServer({ schema });
+const wsServer = new WebSocketServer({ server, path: "/graphql" });
+
+useServer(
+  {
+    schema,
+    context: async (context) => {
+      const params = context.connectionParams as Record<string, unknown> | undefined;
+      const authorization = params?.Authorization ?? params?.authorization;
+      const token = typeof authorization === "string" && authorization.startsWith("Bearer ")
+        ? authorization.slice(7)
+        : typeof params?.token === "string"
+          ? params.token
+          : undefined;
+      return { token, userId: token ? tokenUserId(token) : undefined };
+    },
+  },
+  wsServer
+);
+
 async function startServer(): Promise<void> {
   try {
     await connectDatabase();
     console.log("MongoDB connected successfully");
     await connectRedis();
+    await apolloServer.start();
+    app.use(
+      "/graphql",
+      expressMiddleware(apolloServer, {
+        context: async ({ req, res }) => ({
+          ...createGraphQLContext(req),
+          res,
+        }),
+      })
+    );
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
