@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: MongoDB-backed login endpoint for the MERN Todo application
+
+Parameters:
+  ClientOrigin:
+    Type: String
+    Description: Exact browser origin, without a trailing slash
+  MongoDBUri:
+    Type: String
+    NoEcho: true
+    Description: MongoDB connection string for the application database
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: Same JWT signing secret used by the task API
+  JwtExpiresIn:
+    Type: String
+    Default: 1h
+    Description: jsonwebtoken expiration value
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 256
+    Environment:
+      Variables:
+        CLIENT_ORIGIN: !Ref ClientOrigin
+        MONGODB_URI: !Ref MongoDBUri
+        JWT_SECRET: !Ref JwtSecret
+        JWT_EXPIRES_IN: !Ref JwtExpiresIn
+
+Resources:
+  LoginApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref ClientOrigin
+        AllowMethods:
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 600
+
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../lambda-package/
+      Handler: lambda/login/handler.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        Login:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref LoginApi
+            Path: /login
+            Method: POST
+
+Outputs:
+  LoginUrl:
+    Description: API Gateway login endpoint
+    Value: !Sub "https://${LoginApi}.execute-api.${AWS::Region}.amazonaws.com/login"

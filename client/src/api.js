@@ -5,3 +5,8 @@ export const API_BASE_URL = (
 ).replace(/\/+$/, "");
 
 export const GRAPHQL_URL = API_BASE_URL.replace(/\/api$/, "/graphql");
+export const LOGIN_API_URL = (
+  (typeof process !== "undefined" && process.env?.VITE_LOGIN_API_URL)
+    || (typeof process === "undefined" ? import.meta.env.VITE_LOGIN_API_URL : undefined)
+    || `${API_BASE_URL}/auth/login`
+).replace(/\/+$/, "");

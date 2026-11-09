@@ -37,9 +37,13 @@ io.use((socket, next) => {
   }
 
   try {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      return next(new Error("Authentication service is not configured."));
+    }
     const payload = jwt.verify(
       token,
-      process.env.JWT_SECRET || "development-only-change-me"
+      secret
     ) as jwt.JwtPayload;
     const userId = payload.sub || payload.userId;
     if (typeof userId !== "string" || userId.length === 0) {

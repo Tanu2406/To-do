@@ -11,6 +11,7 @@ const request = require("supertest");
 const mongoose = require("mongoose");
 const app = require("../app");
 const Todo = require("../models/todoModel");
+const { User } = require("../models/userModel");
 
 const todo = {
   _id: "507f1f77bcf86cd799439011",
@@ -89,18 +90,16 @@ describe("Todo API", () => {
     );
   });
 
-  test("login sets an HTTP-only authentication cookie", async () => {
-    process.env.AUTH_USERNAME = "demo";
-    process.env.AUTH_PASSWORD = "demo";
+  test("login rejects demo credentials that do not belong to a stored user", async () => {
+    jest.spyOn(User, "findOne").mockReturnValue({
+      lean: () => ({ exec: async () => null }),
+    });
     const response = await request(app)
       .post("/api/auth/login")
       .send({ username: "demo", password: "demo" });
 
-    expect(response.status).toBe(200);
-    const cookie = response.headers["set-cookie"][0];
-    expect(cookie).toContain("todo_auth_token=");
-    expect(cookie).toContain("HttpOnly");
-    expect(cookie).toContain("SameSite=Lax");
+    expect(response.status).toBe(401);
+    expect(response.body.errorMessage).toBe("Invalid username or password.");
   });
 
   test("logout clears the authentication cookie", async () => {
@@ -113,6 +112,9 @@ describe("Todo API", () => {
   });
 
   test("authentication endpoints return 429 after the strict limit", async () => {
+    jest.spyOn(User, "findOne").mockReturnValue({
+      lean: () => ({ exec: async () => null }),
+    });
     let response;
     for (let attempt = 0; attempt < 11; attempt += 1) {
       response = await request(app)

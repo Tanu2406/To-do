@@ -9,9 +9,11 @@ export interface GraphQLContext {
 
 export function tokenUserId(token: string): string | undefined {
   try {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return undefined;
     const payload = jwt.verify(
       token,
-      process.env.JWT_SECRET || "development-only-change-me"
+      secret
     ) as jwt.JwtPayload;
     const id = payload.sub || payload.userId;
     return typeof id === "string" && id.length > 0 ? id : undefined;

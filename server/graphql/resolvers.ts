@@ -6,6 +6,7 @@ import { createTodo, deleteTodo, getTodos, Todo, updateTodo } from "../models/to
 import { authenticateCredentials, registerUser, User } from "../models/userModel";
 import type { GraphQLContext } from "./context";
 import { setAuthCookie } from "../utils/authCookies";
+import { getJwtSecret } from "../utils/jwtSecret";
 
 export const pubsub = new PubSub();
 
@@ -28,7 +29,7 @@ const requireUser = (context: GraphQLContext) => {
 };
 
 const issueToken = (userId: string, username: string) =>
-  jwt.sign({ username }, process.env.JWT_SECRET || "development-only-change-me", {
+  jwt.sign({ username }, getJwtSecret(), {
     subject: userId,
     expiresIn: process.env.JWT_EXPIRES_IN || "1h",
   } as jwt.SignOptions);
@@ -73,19 +74,6 @@ export const resolvers = {
     },
     login: async (_: unknown, { username, password }: { username: string; password: string }, context: GraphQLContext & { res?: any }) => {
       const user = await authenticateCredentials(username, password);
-      if (
-        !user &&
-        username === (process.env.AUTH_USERNAME || "demo") &&
-        password === (process.env.AUTH_PASSWORD || "demo")
-      ) {
-        const demoUserId = process.env.AUTH_USER_ID || username;
-        const token = issueToken(demoUserId, username);
-        context.res && setAuthCookie(context.res, token);
-        return {
-          token,
-          user: { id: demoUserId, username, createdAt: null },
-        };
-      }
       if (!user) throw new GraphQLError("Invalid username or password.", { extensions: { code: "UNAUTHENTICATED" } });
       const token = issueToken(String(user._id), user.username);
       context.res && setAuthCookie(context.res, token);

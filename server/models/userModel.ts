@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { model, Schema } from "mongoose";
+import { model, models, Schema, type Model } from "mongoose";
 
 export interface UserFields {
   username: string;
@@ -16,7 +16,9 @@ const userSchema = new Schema<UserFields>(
   { timestamps: true, versionKey: false }
 );
 
-export const User = model<UserFields>("User", userSchema);
+export const User =
+  (models.User as Model<UserFields> | undefined) ||
+  model<UserFields>("User", userSchema);
 
 export async function registerUser(username: string, password: string) {
   const normalizedUsername = username.trim().toLowerCase();

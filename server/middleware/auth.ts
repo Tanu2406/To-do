@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt from "jsonwebtoken";
 import { getAuthCookieToken } from "../utils/authCookies";
+import { getJwtSecret } from "../utils/jwtSecret";
 
 export interface AuthenticatedRequest extends Request {
   user?: { id: string };
@@ -11,7 +12,6 @@ export function authenticateUser(
   res: Response,
   next: NextFunction
 ): ReturnType<RequestHandler> {
-  const secret = process.env.JWT_SECRET;
   const authorization = req.header("Authorization");
   const token = authorization?.startsWith("Bearer ")
     ? authorization.slice(7)
@@ -25,11 +25,17 @@ export function authenticateUser(
     return res.status(401).json({ errorMessage: "Authentication required." });
   }
 
+  let secret: string;
   try {
-    const payload = jwt.verify(
-      token,
-      secret || "development-only-change-me"
-    ) as jwt.JwtPayload;
+    secret = getJwtSecret();
+  } catch {
+    return res.status(500).json({
+      errorMessage: "Authentication service is not configured.",
+    });
+  }
+
+  try {
+    const payload = jwt.verify(token, secret) as jwt.JwtPayload;
     const id = payload.sub || payload.userId;
     if (typeof id !== "string" || id.length === 0) {
       return res.status(401).json({ errorMessage: "Invalid authentication token." });

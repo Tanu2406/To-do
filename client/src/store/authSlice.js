@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { apolloClient } from "../apolloClient";
-import { LOGIN_MUTATION } from "../graphql";
+import { LOGIN_API_URL } from "../api";
 
 const TOKEN_KEY = "skillpilot_token";
 
@@ -26,16 +26,23 @@ if (!validStoredToken) sessionStorage.removeItem(TOKEN_KEY);
 
 export const login = createAsyncThunk("auth/login", async (credentials, { rejectWithValue }) => {
   try {
-    const response = await apolloClient.mutate({
-      mutation: LOGIN_MUTATION,
-      variables: credentials,
+    const response = await fetch(LOGIN_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credentials),
     });
-    const token = response.data.login.token;
+    const result = await response.json();
+    if (!response.ok) {
+      return rejectWithValue(
+        result.errorMessage || result.message || "Login failed."
+      );
+    }
+    const token = result.token;
     if (isTokenExpired(token)) return rejectWithValue("The login token is invalid or expired.");
     sessionStorage.setItem(TOKEN_KEY, token);
     return token;
   } catch (error) {
-    return rejectWithValue(error.graphQLErrors?.[0]?.message || error.message || "Login failed.");
+    return rejectWithValue(error.message || "Login failed.");
   }
 });
 

@@ -81,11 +81,11 @@ docker compose up -d redis
 ```
 
 Configure `server/.env` using `server/.env.example`. Task lists are cached for
-60 seconds by default under the authenticated user's key, such as
-`tasks:user:demo-user`. Mutations invalidate that user's key. Redis connection
-failures do not stop the API; requests fall back to MongoDB.
+60 seconds by default under the authenticated user's key. Mutations invalidate
+that user's key. Redis connection failures do not stop the API; requests fall
+back to MongoDB.
 
-Use `POST /api/auth/login` with the configured demo credentials to obtain a
+Use login to obtain a
 JWT, then send `Authorization: Bearer <token>` with task requests. The cache
 source is exposed as `X-Cache: HIT` or `X-Cache: MISS`.
 
@@ -99,8 +99,8 @@ clients) are not blocked by CORS. The app does not enable credentialed CORS.
 
 API requests are limited to 100 per IP per 15 minutes. Mutating API requests
 (`POST`, `PUT`, `PATCH`, and `DELETE`) have an additional limit of 30 per IP in
-the same window. There are currently no authentication routes to configure
-separately. Rate-limit responses use HTTP `429`, include standard
+the same window. Authentication routes have an additional limit of 10 attempts
+per IP in the same window. Rate-limit responses use HTTP `429`, include standard
 `RateLimit-*` headers, and return the API's `errorMessage` JSON shape. In
 production, the app trusts one reverse-proxy hop for client IP detection; keep
 the service behind its configured hosting proxy.
@@ -115,9 +115,41 @@ docker run --rm -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
   -t http://host.docker.internal:5000
 ```
 
-Review ZAP's alerts in context; the API has no authentication and the scan is
-not a substitute for testing against the deployed service and its configured
-frontend origin. Do not include credentials or sensitive data in scans.
+Review ZAP's alerts in context; the scan is not a substitute for testing
+against the deployed service and its configured frontend origin. Do not include
+credentials or sensitive data in scans.
+
+Login credentials are verified against MongoDB users with bcrypt password
+hashes; there are no demo-credential fallbacks. The React login form uses the
+API Gateway `/login` endpoint configured by `VITE_LOGIN_API_URL`. The legacy
+Express `POST /api/auth/login` endpoint also verifies stored users.
+
+## AWS Lambda login
+
+The login Lambda is deployment-ready in `server/lambda/` and shares the
+compiled `models/userModel` with the Express API. It returns a JWT whose signing
+secret must match `JWT_SECRET` on the task API. API Gateway HTTP API handles
+`POST /login` and CORS preflight; the Lambda also validates origins and returns
+the matching CORS headers for proxy responses.
+
+1. Install the AWS SAM CLI and configure AWS credentials with permission to
+   create Lambda, API Gateway, IAM roles, and CloudFormation resources.
+2. From `server/`, run `.\lambda\package-lambda.ps1`. This compiles the shared
+   model, installs Lambda-only production dependencies, and creates
+   `aws/login-function.zip` (also prepares the package used by SAM).
+3. Run `sam build --template-file aws/template.yaml` followed by
+   `sam deploy --guided`. Supply the exact deployed frontend origin, the
+   MongoDB connection string, and the same JWT secret used by the task API.
+   The template marks the database URI and signing secret as NoEcho parameters
+   and passes them to Lambda as environment variables.
+4. Copy the `LoginUrl` CloudFormation output into the frontend's
+   `VITE_LOGIN_API_URL` environment variable, then rebuild and redeploy React.
+   Keep `VITE_API_BASE_URL` and `VITE_SOCKET_URL` pointed at the existing task
+   API; login and task traffic use separate endpoints.
+
+The AWS deployment has not been run from this workspace. The package and SAM
+configuration must be deployed in an AWS account, and the Lambda's network
+access to MongoDB Atlas must be configured before production login can succeed.
 
 ## Deployment
 
