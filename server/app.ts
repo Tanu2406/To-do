@@ -12,10 +12,13 @@ import todoRoutes from "./routes/todoRoutes";
 import { baseRoot } from "./controllers/todoController";
 import type { ApiResponse, AppLocals } from "./types";
 import { AUTH_COOKIE_NAME } from "./utils/authCookies";
+import { metricsRegistry, trackHttpRequests } from "./metrics";
 
 dotenvFlow.config();
 
 const app = express();
+
+app.use(trackHttpRequests);
 
 const configuredOrigins = (process.env.CLIENT_ORIGIN || "")
   .split(",")
@@ -128,6 +131,10 @@ app.use((req, res, next) => {
 });
 
 app.get("/", baseRoot);
+app.get("/metrics", async (_req, res) => {
+  res.set("Content-Type", metricsRegistry.contentType);
+  res.send(await metricsRegistry.metrics());
+});
 app.use("/api", todoRoutes);
 app.get("/api/health", (_req, res) => {
   res.status(200).json({

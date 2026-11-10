@@ -89,6 +89,43 @@ Use login to obtain a
 JWT, then send `Authorization: Bearer <token>` with task requests. The cache
 source is exposed as `X-Cache: HIT` or `X-Cache: MISS`.
 
+## Prometheus and Grafana monitoring
+
+The backend exposes Prometheus metrics at `/metrics`. Completed HTTP requests
+are recorded in `http_requests_total` and
+`http_request_duration_seconds`; responses with 4xx or 5xx status codes are
+also recorded in `http_request_errors_total`. Route labels use Express route
+templates rather than request IDs or raw URLs to avoid high-cardinality metrics.
+The scrape endpoint itself is excluded from request tracking.
+
+The root Docker Compose stack runs Redis, the API, the frontend, Prometheus, and
+Grafana. Configure `server/.env` first (copy `server/.env.example` and set a
+reachable `MONGODB_URI` and a strong `JWT_SECRET`). Then set a strong
+`GRAFANA_ADMIN_PASSWORD` in the shell or root Compose `.env` file and start the
+stack:
+
+```bash
+docker compose up --build -d
+```
+
+By default, the frontend is at `http://localhost:8080`, the API and metrics
+endpoint are at `http://localhost:5000` and `http://localhost:5000/metrics`,
+Prometheus is at `http://localhost:9090`, and Grafana is at
+`http://localhost:3001`. Grafana's username defaults to `admin`; its password
+comes from `GRAFANA_ADMIN_PASSWORD`. Set `CLIENT_ORIGIN` if the frontend uses a
+different origin. The API container connects to the configured MongoDB instance
+and to the Compose Redis service.
+
+Prometheus scrapes the API every 15 seconds. Grafana provisions the Prometheus
+datasource, the **Todo API Monitoring** dashboard (p50/p95 latency, request
+volume, and 4xx/5xx error rate), and a **High API 5xx error rate** alert. The
+alert evaluates the rolling 5-minute 5xx ratio and fires when it is above 5%
+for 5 minutes. Configure a Grafana contact point and notification policy in
+Grafana if alerts should be delivered outside the Grafana UI. Prometheus and
+Grafana data persist in named Docker volumes. Set `API_PORT`, `CLIENT_PORT`,
+`PROMETHEUS_PORT`, `GRAFANA_PORT`, or `PROMETHEUS_RETENTION` to change the
+defaults.
+
 ## API security and verification
 
 The Express API uses Helmet's default secure response headers and one CORS
