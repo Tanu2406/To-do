@@ -1,15 +1,22 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { LOGIN_API_URL } from "../api";
-import authReducer, { login } from "./authSlice";
+import {
+  LOGIN_API_URL,
+  REGISTER_API_URL,
+} from "../api";
+import authReducer, { login, register } from "./authSlice";
 
-jest.mock("../api", () => ({ LOGIN_API_URL: "https://api.example/login" }));
-jest.mock("../apolloClient", () => ({ apolloClient: { resetStore: jest.fn() } }));
+jest.mock("../api", () => ({
+  LOGIN_API_URL: "https://api.example/auth/login",
+  REGISTER_API_URL: "https://api.example/auth/register",
+  SESSION_API_URL: "https://api.example/auth/session",
+  LOGOUT_API_URL: "https://api.example/auth/logout",
+}));
+jest.mock("../apolloClient", () => ({
+  apolloClient: { clearStore: jest.fn().mockResolvedValue(undefined) },
+}));
 
 const createStore = () => configureStore({ reducer: { auth: authReducer } });
-const createToken = () => {
-  const payload = btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }));
-  return `header.${payload}.signature`;
-};
+const user = { id: "123", username: "alice" };
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -20,12 +27,11 @@ afterEach(() => {
   delete global.fetch;
 });
 
-describe("login thunk", () => {
-  test("posts credentials to the configured endpoint and stores the JWT", async () => {
-    const token = createToken();
+describe("cookie-based authentication", () => {
+  test("logs in with credentials and keeps the JWT out of browser storage", async () => {
     global.fetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ token }),
+      json: async () => ({ data: { user } }),
     });
     const store = createStore();
 
@@ -35,11 +41,29 @@ describe("login thunk", () => {
       LOGIN_API_URL,
       expect.objectContaining({
         method: "POST",
+        credentials: "include",
         body: JSON.stringify({ username: "alice", password: "correct horse" }),
       })
     );
-    expect(store.getState().auth.token).toBe(token);
-    expect(sessionStorage.getItem("skillpilot_token")).toBe(token);
+    expect(store.getState().auth.user).toEqual(user);
+    expect(store.getState().auth.isAuthenticated).toBe(true);
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  test("registers an account through the cookie-authenticated API", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { user } }),
+    });
+    const store = createStore();
+
+    await store.dispatch(register({ username: "alice", password: "correct horse" }));
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      REGISTER_API_URL,
+      expect.objectContaining({ method: "POST", credentials: "include" })
+    );
+    expect(store.getState().auth.user).toEqual(user);
   });
 
   test("surfaces API errors for invalid credentials", async () => {

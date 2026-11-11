@@ -1,7 +1,8 @@
 import type { CookieOptions, Request, Response } from "express";
 
-export const AUTH_COOKIE_NAME =
-  process.env.AUTH_COOKIE_NAME || "todo_auth_token";
+export function getAuthCookieName(): string {
+  return process.env.AUTH_COOKIE_NAME || "todo_auth_token";
+}
 
 export function getCookieOptions(): CookieOptions {
   const isProduction = process.env.NODE_ENV === "production";
@@ -30,20 +31,41 @@ export function getCookieOptions(): CookieOptions {
 }
 
 export function setAuthCookie(res: Response, token: string): void {
-  res.cookie(AUTH_COOKIE_NAME, token, {
+  res.cookie(getAuthCookieName(), token, {
     ...getCookieOptions(),
     maxAge: 60 * 60 * 1000,
   });
 }
 
 export function clearAuthCookie(res: Response): void {
-  res.clearCookie(AUTH_COOKIE_NAME, getCookieOptions());
+  res.clearCookie(getAuthCookieName(), getCookieOptions());
 }
 
 export function getAuthCookieToken(req: Request): string | undefined {
   const cookies = (req as Request & {
     cookies?: Record<string, unknown>;
   }).cookies;
-  const token = cookies?.[AUTH_COOKIE_NAME];
+  const token = cookies?.[getAuthCookieName()];
   return typeof token === "string" ? token : undefined;
+}
+
+export function getAuthCookieTokenFromHeader(
+  cookieHeader: string | undefined
+): string | undefined {
+  if (!cookieHeader) return undefined;
+
+  for (const cookie of cookieHeader.split(";")) {
+    const separator = cookie.indexOf("=");
+    if (separator < 0 || cookie.slice(0, separator).trim() !== getAuthCookieName()) {
+      continue;
+    }
+
+    try {
+      return decodeURIComponent(cookie.slice(separator + 1).trim());
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
 }

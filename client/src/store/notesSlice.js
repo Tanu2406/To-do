@@ -12,6 +12,7 @@ const normalizeTask = (task) => ({
   ...task,
   _id: task.id || task._id,
   title: task.task || task.title,
+  isCompleted: Boolean(task.isCompleted),
 });
 
 export const fetchNotes = createAsyncThunk("notes/fetch", async (_, { dispatch, rejectWithValue }) => {
@@ -34,11 +35,15 @@ export const addNote = createAsyncThunk("notes/add", async ({ title }, { dispatc
   }
 });
 
-export const updateNote = createAsyncThunk("notes/update", async ({ id, title }, { dispatch, rejectWithValue }) => {
+export const updateNote = createAsyncThunk("notes/update", async ({ id, title, isCompleted }, { dispatch, rejectWithValue }) => {
   try {
     const response = await apolloClient.mutate({
       mutation: UPDATE_TASK_MUTATION,
-      variables: { id, task: title },
+      variables: {
+        id,
+        ...(title !== undefined ? { task: title } : {}),
+        ...(isCompleted !== undefined ? { isCompleted } : {}),
+      },
     });
     return normalizeTask(response.data.updateTask);
   } catch (error) {

@@ -47,7 +47,7 @@ a Node.js/Express API backed by MongoDB Atlas.
    npm run dev
    ```
 
-   Open [http://localhost:3000](http://localhost:3000). The API connects to
+   Open [http://localhost:5173](http://localhost:5173). The API connects to
    MongoDB before it starts accepting requests. Open the app in two browser
    windows and create, edit, complete, or delete a todo in one; the other window
    should update without refreshing. The connection indicator shows the current
@@ -71,6 +71,22 @@ JWT authentication protects task routes; CORS additionally restricts browser
 origins. Existing rows in the former MySQL database are
 not copied automatically. The old `server/schema.sql` is not used by the
 MongoDB backend.
+
+## GraphQL tasks and authentication
+
+The React app uses the existing Express/Apollo service at `/graphql` for
+authenticated task queries, creation, updates, deletion, and the
+`taskChanged` subscription. The existing Socket.IO channel also sends
+user-scoped task changes and reports live connection status in the UI.
+Registration, login, session restoration, and logout use the Express auth
+routes. JWTs are set only in an `HttpOnly`, `SameSite` auth cookie; the browser
+does not persist or expose the token to JavaScript. The cookie is sent with
+GraphQL and Socket.IO connections, and each task operation is scoped to its
+authenticated MongoDB user.
+
+The service continues to use the existing Mongoose connection and models for
+both users and tasks. Sequelize is not added because this application has no
+active relational data store; introducing one would duplicate task persistence.
 
 ## Redis task cache
 
@@ -98,11 +114,11 @@ also recorded in `http_request_errors_total`. Route labels use Express route
 templates rather than request IDs or raw URLs to avoid high-cardinality metrics.
 The scrape endpoint itself is excluded from request tracking.
 
-The root Docker Compose stack runs Redis, the API, the frontend, Prometheus, and
-Grafana. Configure `server/.env` first (copy `server/.env.example` and set a
-reachable `MONGODB_URI` and a strong `JWT_SECRET`). Then set a strong
-`GRAFANA_ADMIN_PASSWORD` in the shell or root Compose `.env` file and start the
-stack:
+The root Docker Compose stack runs MongoDB, Redis, the API, the frontend,
+Prometheus, and Grafana. Copy `server/.env.example` to `server/.env` and set a
+strong `JWT_SECRET`. Optionally copy the root `.env.example` to `.env` and set
+a strong `GRAFANA_ADMIN_PASSWORD`. The Compose backend connects to the MongoDB
+service using the configured `MONGODB_URI`:
 
 ```bash
 docker compose up --build -d
@@ -114,7 +130,8 @@ Prometheus is at `http://localhost:9090`, and Grafana is at
 `http://localhost:3001`. Grafana's username defaults to `admin`; its password
 comes from `GRAFANA_ADMIN_PASSWORD`. Set `CLIENT_ORIGIN` if the frontend uses a
 different origin. The API container connects to the configured MongoDB instance
-and to the Compose Redis service.
+and to the Compose Redis service. MongoDB data is persisted in the
+`mongodb-data` volume.
 
 Prometheus scrapes the API every 15 seconds. Grafana provisions the Prometheus
 datasource, the **Todo API Monitoring** dashboard (p50/p95 latency, request
@@ -132,12 +149,12 @@ The Express API uses Helmet's default secure response headers and one CORS
 allowlist shared with Socket.IO. `CLIENT_ORIGIN` must contain at least one exact
 frontend origin in production; local origins are added automatically only
 outside production. Requests without an `Origin` header (such as server-to-server
-clients) are not blocked by CORS. The app does not enable credentialed CORS.
+clients) are not blocked by CORS. Browser CORS is credentialed for the allowed
+origins so the HttpOnly session cookie can be used by Apollo and Socket.IO.
 
-API requests are limited to 100 per IP per 15 minutes. Mutating API requests
-(`POST`, `PUT`, `PATCH`, and `DELETE`) have an additional limit of 30 per IP in
-the same window. Authentication routes have an additional limit of 10 attempts
-per IP in the same window. Rate-limit responses use HTTP `429`, include standard
+API requests are limited to 100 per IP per 15 minutes. Authentication routes
+have an additional limit of 10 attempts per IP in the same window. Rate-limit
+responses use HTTP `429`, include standard
 `RateLimit-*` headers, and return the API's `errorMessage` JSON shape. In
 production, the app trusts one reverse-proxy hop for client IP detection; keep
 the service behind its configured hosting proxy.
@@ -157,9 +174,10 @@ against the deployed service and its configured frontend origin. Do not include
 credentials or sensitive data in scans.
 
 Login credentials are verified against MongoDB users with bcrypt password
-hashes; there are no demo-credential fallbacks. The React login form uses the
-API Gateway `/login` endpoint configured by `VITE_LOGIN_API_URL`. The legacy
-Express `POST /api/auth/login` endpoint also verifies stored users.
+hashes; there are no demo-credential fallbacks. The React login and registration
+forms use `POST /api/auth/login` and `POST /api/auth/register`; the session
+cookie is checked by `GET /api/auth/session` and cleared by
+`POST /api/auth/logout`.
 
 ## AWS Lambda login
 

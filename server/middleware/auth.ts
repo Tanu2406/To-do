@@ -4,7 +4,7 @@ import { getAuthCookieToken } from "../utils/authCookies";
 import { getJwtSecret } from "../utils/jwtSecret";
 
 export interface AuthenticatedRequest extends Request {
-  user?: { id: string };
+  user?: { id: string; username?: string };
 }
 
 export function authenticateUser(
@@ -40,7 +40,10 @@ export function authenticateUser(
     if (typeof id !== "string" || id.length === 0) {
       return res.status(401).json({ errorMessage: "Invalid authentication token." });
     }
-    req.user = { id };
+    req.user = {
+      id,
+      ...(typeof payload.username === "string" ? { username: payload.username } : {}),
+    };
     return next();
   } catch {
     return res.status(401).json({ errorMessage: "Invalid or expired authentication token." });

@@ -135,6 +135,19 @@
     &:hover {
       background-color: $color-purple-700;
     }
+
+    .authSwitch {
+      align-self: center;
+      padding: $space-2;
+      background: transparent;
+      color: $color-purple-700;
+      font-size: $font-size-sm;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 
   &:disabled {

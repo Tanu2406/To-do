@@ -12,7 +12,11 @@ import { connectDatabase } from "./config/db";
 import { connectRedis, disconnectRedis } from "./config/redis";
 import { typeDefs } from "./graphql/schema";
 import { resolvers } from "./graphql/resolvers";
-import { createGraphQLContext, tokenUserId } from "./graphql/context";
+import {
+  createGraphQLContext,
+  tokenFromWebSocketCookie,
+  tokenUserId,
+} from "./graphql/context";
 
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
@@ -31,7 +35,11 @@ const io = new Server(server, {
 });
 
 io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
+  const token =
+    (typeof socket.handshake.auth?.token === "string"
+      ? socket.handshake.auth.token
+      : undefined) ||
+    tokenFromWebSocketCookie(socket.handshake.headers.cookie);
   if (typeof token !== "string" || token.length === 0) {
     return next(new Error("Authentication required."));
   }
@@ -68,6 +76,10 @@ const wsServer = new WebSocketServer({ server, path: "/graphql" });
 
 useServer(
   {
+    onConnect: (context) => {
+      const origin = context.extra.request.headers.origin;
+      return !origin || app.locals.allowedOrigins.includes(origin);
+    },
     schema,
     context: async (context) => {
       const params = context.connectionParams as Record<string, unknown> | undefined;
@@ -76,7 +88,7 @@ useServer(
         ? authorization.slice(7)
         : typeof params?.token === "string"
           ? params.token
-          : undefined;
+          : tokenFromWebSocketCookie(context.extra.request.headers.cookie);
       return { token, userId: token ? tokenUserId(token) : undefined };
     },
   },

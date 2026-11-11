@@ -11,7 +11,7 @@ import helmet from "helmet";
 import todoRoutes from "./routes/todoRoutes";
 import { baseRoot } from "./controllers/todoController";
 import type { ApiResponse, AppLocals } from "./types";
-import { AUTH_COOKIE_NAME } from "./utils/authCookies";
+import { getAuthCookieName } from "./utils/authCookies";
 import { metricsRegistry, trackHttpRequests } from "./metrics";
 
 dotenvFlow.config();
@@ -120,7 +120,7 @@ app.use(cookieParser());
 app.use((req, res, next) => {
   if (
     ["POST", "PUT", "PATCH", "DELETE"].includes(req.method) &&
-    req.cookies?.[AUTH_COOKIE_NAME] &&
+    req.cookies?.[getAuthCookieName()] &&
     !req.header("Origin")
   ) {
     return res.status(403).json({

@@ -224,7 +224,10 @@ export async function deleteTask(
     } catch (error) {
       console.warn("Unable to invalidate task cache:", error instanceof Error ? error.message : error);
     }
-    req.app.locals.io?.emit("todo:deleted", { _id: deleted._id });
+    const io = req.app.locals.io;
+    if (typeof io?.to === "function") {
+      io.to(`user:${req.user?.id || "anonymous"}`).emit("taskDeleted", deleted);
+    }
     return res
       .status(200)
       .json({ message: "Task deleted successfully.", deleted });

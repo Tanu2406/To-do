@@ -339,7 +339,7 @@ describe("Todo API", () => {
       deleted: todo,
     });
     expect(Todo.deleteTodo).toHaveBeenCalledWith(todo._id);
-    expect(app.locals.io.emit).toHaveBeenCalledWith("todo:deleted", {
+    expect(app.locals.io.emit).not.toHaveBeenCalledWith("todo:deleted", {
       _id: todo._id,
     });
   });

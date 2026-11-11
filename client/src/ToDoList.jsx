@@ -4,7 +4,7 @@ import { RiCalendarTodoLine } from "react-icons/ri";
 import { Toaster } from "react-hot-toast";
 import NotesList from "./NotesList";
 import { addNote, updateNote } from "./store/notesSlice";
-import { logout } from "./store/authSlice";
+import { logoutSession } from "./store/authSlice";
 import styles from "./ToDoList.module.scss";
 
 const ToDoList = () => {
@@ -52,8 +52,8 @@ const ToDoList = () => {
         <div className={styles.card}>
           <div className={styles.heading}>
             <RiCalendarTodoLine aria-hidden="true" />
-            <h1>Notes</h1>
-            <button type="button" className={styles.submitButton} onClick={() => dispatch(logout())}>Logout</button>
+            <h1>Tasks</h1>
+            <button type="button" className={styles.submitButton} onClick={() => dispatch(logoutSession())}>Logout</button>
           </div>
 
           {/* Form submission handles both button click and Enter key */}
@@ -92,7 +92,7 @@ const ToDoList = () => {
           </form>
 
           {error && <p role="alert">{error}</p>}
-          <NotesList />
+          <NotesList setAddTask={setAddTask} />
         </div>
       </main>
       <Toaster position="top-right" />
